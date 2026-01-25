@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head><title>Latur ESP HiveMQ Dashboard</title>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<style>body{font-family:sans-serif;max-width:800px;margin:auto;padding:20px}
+.card{background:white;padding:20px;margin:10px 0;border-radius:10px;box-shadow:0 2px 10px #0001}</style>
+</head>
+<body>
+<h1>🚀 Latur ESP32 + HiveMQ Cloud</h1>
+
+<div class=card>
+  <h3>📶 Status <span id=esp-status style='display:inline-block;width:12px;height:12px;border-radius:50%;background:#f44336;margin-right:8px'></span></h3>
+  <div id=messages style='max-height:300px;overflow:auto'></div>
+  <button onclick=sendTest()>📤 Send Test Command</button>
+</div>
+
+<script>
+const client = mqtt.connect('wss://93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud:8884/mqtt', {
+  username: 'tohits',
+  password: 'toh123@TOH'
+});
+
+client.on('connect', () => {
+  client.subscribe('latur/esp/#');
+  document.getElementById('esp-status').style.background = '#4CAF50';
+});
+
+client.on('message', (topic, msg) => {
+  document.getElementById('messages').innerHTML += 
+    `<div>${new Date().toLocaleTimeString()}: ${topic} = ${msg}</div>`;
+});
+
+function sendTest() {
+  client.publish('latur/esp/command', 'test-from-web');
+}
+</script>
+</body>
+</html>
