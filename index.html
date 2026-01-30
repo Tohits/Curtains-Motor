@@ -1,155 +1,110 @@
-
 <!DOCTYPE html>
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Smart Knob Control</title>
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background-color: #f4f7f6; padding: 20px; margin: 0; }
-    
-    /* Main Card Styling */
-    .card { 
-      background: white; 
-      padding: 30px; 
-      border-radius: 20px; 
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
-      max-width: 400px; 
-      margin: auto; 
-    }
-    
+    body { font-family: 'Segoe UI', sans-serif; text-align: center; background-color: #f4f7f6; padding: 20px; }
+    .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
     h2 { margin-top: 0; color: #333; }
-    p { margin: 5px 0; color: #666; }
     
-    /* Live Pulse Display */
     .pulse-box {
-      border: 3px solid #ddd;
-      border-radius: 15px;
-      padding: 20px;
-      margin: 25px 0;
-      transition: all 0.3s ease;
-      background-color: #fafafa;
+      border: 3px solid #ddd; border-radius: 15px; padding: 20px; margin: 25px 0; background-color: #fafafa;
     }
-    
     .big-number { font-size: 4.5rem; font-weight: bold; color: #333; margin: 0; line-height: 1; }
-    .label { font-size: 0.9rem; color: #888; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
-
-    /* Slider Styling */
-    input[type=range] { 
-      width: 100%; 
-      height: 10px; 
-      border-radius: 5px;
-      background: #d3d3d3; 
-      outline: none; 
-      margin-top: 15px;
-      -webkit-appearance: none;
-    }
+    .label { font-size: 0.9rem; color: #888; text-transform: uppercase; }
     
-    input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 25px;
-      height: 25px;
-      border-radius: 50%;
-      background: #007BFF;
-      cursor: pointer;
-    }
+    input[type=range] { width: 100%; height: 10px; border-radius: 5px; background: #d3d3d3; outline: none; margin-top: 15px; -webkit-appearance: none; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 25px; height: 25px; border-radius: 50%; background: #007BFF; cursor: pointer; }
 
-    /* Status Text */
-    #statusText { 
-      font-weight: bold; 
-      margin-top: 20px; 
-      display: block; 
-      padding: 12px; 
-      border-radius: 8px; 
-      color: white; 
-      font-size: 1rem;
-    }
-    
-    /* Dynamic Status Colors */
-    .idle { background-color: #b0bec5; color: #fff !important; }
-    .cw   { background-color: #2196F3; box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4); } /* Blue */
-    .ccw  { background-color: #FF9800; box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4); } /* Orange */
-    .done { background-color: #4CAF50; box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4); } /* Green */
-    
-    /* Border Colors for Pulse Box */
-    .border-idle { border-color: #ddd; }
-    .border-cw   { border-color: #2196F3; background-color: #e3f2fd; }
-    .border-ccw  { border-color: #FF9800; background-color: #fff3e0; }
-    .border-done { border-color: #4CAF50; background-color: #e8f5e9; }
+    /* IP Input Styling */
+    .ip-box { background: #e8eaf6; padding: 10px; border-radius: 8px; margin-bottom: 20px; }
+    .ip-input { padding: 8px; border-radius: 4px; border: 1px solid #ccc; width: 60%; text-align: center; }
+    .connect-btn { padding: 8px 15px; background: #007BFF; color: white; border: none; border-radius: 4px; cursor: pointer; }
 
+    /* Status Colors */
+    .idle { background-color: #b0bec5; color: #fff; padding: 10px; border-radius: 5px; display: block;}
+    .cw   { background-color: #2196F3; color: white; padding: 10px; border-radius: 5px; display: block;} 
+    .ccw  { background-color: #FF9800; color: white; padding: 10px; border-radius: 5px; display: block;} 
+    .done { background-color: #4CAF50; color: white; padding: 10px; border-radius: 5px; display: block;} 
   </style>
 </head>
 <body>
+
   <div class="card">
     <h2>Smart Control</h2>
-    
-    <div style="margin-bottom: 30px;">
-      <p>Target Setting: <b id="targetSpan" style="color:#007BFF; font-size: 1.5rem;">%TARGET%</b></p>
-      <input type="range" min="0" max="100" value="%TARGET%" oninput="updateTarget(this.value)" ontouchend="updateTarget(this.value)">
+
+    <div class="ip-box">
+      <p style="margin:5px 0; font-size:0.8rem;">NodeMCU IP Address:</p>
+      <input type="text" id="ipInput" class="ip-input" placeholder="192.168.1.X" value="192.168.1.">
+      <button class="connect-btn" onclick="saveIP()">Set</button>
     </div>
     
-    <div id="pulseContainer" class="pulse-box border-idle">
+    <div>
+      <p>Target: <b id="targetSpan" style="color:#007BFF; font-size: 1.5rem;">0</b></p>
+      <input type="range" min="0" max="100" value="0" id="slider" oninput="updateTarget(this.value)" ontouchend="updateTarget(this.value)">
+    </div>
+    
+    <div id="pulseContainer" class="pulse-box">
       <p class="label">Actual Position</p>
-      <p id="livePulse" class="big-number">%CURRENT%</p>
+      <p id="livePulse" class="big-number">--</p>
     </div>
 
-    <span id="statusText" class="idle">System Ready</span>
-    
-    <br><br>
-    <a href="/reset" style="color:#d9534f; text-decoration: none; font-size: 12px;">Reset WiFi Settings</a>
+    <span id="statusText" class="idle">Not Connected</span>
   </div>
 
   <script>
-    // 1. Send Slider Value to NodeMCU
-    function updateTarget(val) {
-      document.getElementById('targetSpan').innerText = val;
-      // Use standard AJAX request to send data in background
-      var xhr = new XMLHttpRequest();
-      xhr.open("GET", "/set?value=" + val, true);
-      xhr.send();
+    let nodeIP = localStorage.getItem("node_ip") || ""; 
+    document.getElementById('ipInput').value = nodeIP;
+
+    function saveIP() {
+      const ip = document.getElementById('ipInput').value;
+      // Add http:// if missing
+      nodeIP = ip.startsWith("http") ? ip : "http://" + ip;
+      localStorage.setItem("node_ip", ip); // Remember it for next time
+      alert("IP set to: " + nodeIP);
     }
 
-    // 2. Live Update Loop (Polls every 200ms)
+    function updateTarget(val) {
+      if(!nodeIP) return;
+      document.getElementById('targetSpan').innerText = val;
+      fetch(nodeIP + "/set?value=" + val).catch(e => console.log(e));
+    }
+
+    // Poll Status
     setInterval(function() {
-      fetch("/status")
+      if(!nodeIP) return;
+
+      fetch(nodeIP + "/status")
         .then(response => response.json())
         .then(data => {
-          
-          // Update Numbers
           document.getElementById('livePulse').innerText = data.enc;
           document.getElementById('targetSpan').innerText = data.target;
+          document.getElementById('slider').value = data.target;
 
-          // Update Visuals based on Task Status
           var status = document.getElementById('statusText');
-          var container = document.getElementById('pulseContainer');
-
+          
           if(data.task == 1) {
-             // Moving Forward (CW)
-             status.innerText = "MOVING FORWARD (Relay D1 ON)";
+             status.innerText = "MOVING FORWARD";
              status.className = "cw";
-             container.className = "pulse-box border-cw";
           } else if (data.task == 2) {
-             // Moving Reverse (CCW)
-             status.innerText = "MOVING REVERSE (Relay D2 ON)";
+             status.innerText = "MOVING REVERSE";
              status.className = "ccw";
-             container.className = "pulse-box border-ccw";
           } else {
-             // Idle / Target Reached
-             // Check if we are actually at the target to show "Done" vs "Ready"
              if(data.enc == data.target && data.enc != 0) {
-                status.innerText = "Target Reached (All OFF)";
+                status.innerText = "Target Reached";
                 status.className = "done";
-                container.className = "pulse-box border-done";
              } else {
                 status.innerText = "System Ready";
                 status.className = "idle";
-                container.className = "pulse-box border-idle";
              }
           }
         })
-        .catch(error => console.log('Connection lost', error));
-    }, 200); // Refresh rate in milliseconds
+        .catch(error => {
+          document.getElementById('statusText').innerText = "Connecting...";
+          document.getElementById('statusText').className = "idle";
+        });
+    }, 500);
   </script>
 </body>
 </html>
-)rawliteral";
