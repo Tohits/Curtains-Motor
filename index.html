@@ -3,312 +3,118 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Smart Knob Pro</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
-  
   <style>
-    /* --- GENERAL STYLING --- */
-    body { 
-      font-family: 'Inter', sans-serif; 
-      background: #eef2f5; 
-      display: flex; 
-      justify-content: center; 
-      align-items: center; 
-      min-height: 100vh; 
-      margin: 0; 
-      color: #333;
-    }
-    
-    .card { 
-      background: white; 
-      width: 100%; 
-      max-width: 380px; 
-      padding: 30px; 
-      border-radius: 24px; 
-      box-shadow: 0 15px 35px rgba(0,0,0,0.08); 
-    }
-
+    body { font-family: 'Inter', sans-serif; background: #eef2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; color: #333;}
+    .card { background: white; width: 100%; max-width: 380px; padding: 30px; border-radius: 24px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); }
     h2 { margin: 0 0 20px 0; font-weight: 700; color: #2c3e50; text-align: center; }
     
-    /* --- STATUS BAR --- */
-    .status-bar { 
-      display: flex; 
-      justify-content: space-between; 
-      background: #f8f9fa; 
-      padding: 10px 15px; 
-      border-radius: 12px; 
-      font-size: 0.85rem; 
-      font-weight: 600;
-      margin-bottom: 25px;
-    }
+    /* RAIN ALERT BOX - GREEN FOR OPENING */
+    .rain-alert { display: none; background: #00C853; color: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center; font-weight: bold; animation: pulse 1.5s infinite;}
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+
+    .status-bar { display: flex; justify-content: space-between; background: #f8f9fa; padding: 10px 15px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; margin-bottom: 25px;}
     .status-item { display: flex; align-items: center; gap: 6px; }
     .dot { height: 8px; width: 8px; border-radius: 50%; }
-    .green { background-color: #00c853; box-shadow: 0 0 5px #00c853; }
-    .red { background-color: #ff3d00; }
-    .grey { background-color: #b0bec5; }
+    .green { background-color: #00c853; } .red { background-color: #ff3d00; } .grey { background-color: #b0bec5; }
 
-    /* --- TARGET SECTION --- */
-    .target-box { 
-      text-align: center; 
-      margin-bottom: 25px; 
-    }
-    .target-label { font-size: 0.8rem; color: #8898aa; font-weight: 700; letter-spacing: 1px; margin-bottom: 5px; display: block; }
-    .target-val { 
-      font-size: 3rem; 
-      font-weight: 700; 
-      color: #3f51b5; 
-      transition: color 0.2s;
-    }
-
-    /* --- CUSTOM SLIDER --- */
-    input[type=range] {
-      -webkit-appearance: none;
-      width: 100%;
-      margin: 15px 0;
-      background: transparent;
-    }
-    input[type=range]:focus { outline: none; }
+    .target-box { text-align: center; margin-bottom: 25px; }
+    .target-val { font-size: 3rem; font-weight: 700; color: #3f51b5; }
+    input[type=range] { width: 100%; margin: 15px 0; }
     
-    /* The Track */
-    input[type=range]::-webkit-slider-runnable-track {
-      width: 100%;
-      height: 12px;
-      cursor: pointer;
-      background: #e0e0e0;
-      border-radius: 6px;
-    }
-    /* The Thumb (Handle) */
-    input[type=range]::-webkit-slider-thumb {
-      height: 28px;
-      width: 28px;
-      border-radius: 50%;
-      background: #3f51b5;
-      cursor: pointer;
-      -webkit-appearance: none;
-      margin-top: -8px; /* Centers thumb on track */
-      box-shadow: 0 4px 10px rgba(63, 81, 181, 0.4);
-      transition: transform 0.1s;
-    }
-    input[type=range]:active::-webkit-slider-thumb { transform: scale(1.2); }
-
-    /* --- PRESET BUTTONS --- */
-    .preset-container {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 30px;
-      gap: 10px;
-    }
-    .btn-preset {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      border-radius: 8px;
-      background: #f1f3f9;
-      color: #555;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .btn-preset:hover { background: #e0e4f0; }
+    .preset-container { display: flex; justify-content: space-between; margin-bottom: 30px; gap: 10px; }
+    .btn-preset { flex: 1; padding: 10px; border: none; border-radius: 8px; background: #f1f3f9; cursor: pointer; font-weight: 600; }
     .btn-preset:active { background: #3f51b5; color: white; }
 
-    /* --- ACTUAL POSITION BOX --- */
-    .pulse-box {
-      text-align: center;
-      padding: 20px;
-      border-radius: 16px;
-      background: white;
-      border: 2px solid #f0f0f0;
-      transition: all 0.3s ease;
-      position: relative;
-    }
-    /* Status indicator strip on the left */
-    .pulse-box::before {
-      content: '';
-      position: absolute;
-      left: 0; top: 15px; bottom: 15px;
-      width: 4px;
-      background: #ddd;
-      border-radius: 0 4px 4px 0;
-      transition: background 0.3s;
-    }
-    .pulse-box.active-green { border-color: #4CAF50; background: #f0fdf4; }
-    .pulse-box.active-green::before { background: #4CAF50; }
-    
-    .pulse-box.active-orange { border-color: #ff9800; background: #fff8e1; }
-    .pulse-box.active-orange::before { background: #ff9800; }
-
+    .pulse-box { text-align: center; padding: 20px; border-radius: 16px; background: white; border: 2px solid #f0f0f0; }
     .big-number { font-size: 2.5rem; font-weight: 700; color: #333; margin: 5px 0 0 0; }
-
-    /* --- INFO PANEL --- */
-    .info-panel { 
-      margin-top: 25px; 
-      font-size: 0.75rem; 
-      color: #999; 
-      border-top: 1px solid #eee;
-      padding-top: 15px;
-    }
+    
+    .info-panel { margin-top: 25px; font-size: 0.75rem; color: #999; border-top: 1px solid #eee; padding-top: 15px; }
     .info-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
-
   </style>
 </head>
 <body>
-
   <div class="card">
     <h2>Smart Controller</h2>
     
+    <div id="rainBox" class="rain-alert">☔ RAIN DETECTED! Opening to 100%...</div>
+
     <div class="status-bar">
-      <div class="status-item">
-        <span id="webDot" class="dot grey"></span> <span id="webText">Web: ...</span>
-      </div>
-      <div class="status-item">
-        <span id="espDot" class="dot grey"></span> <span id="espText">ESP: ...</span>
-      </div>
+      <div class="status-item"><span id="webDot" class="dot grey"></span> <span id="webText">Web: ...</span></div>
+      <div class="status-item"><span id="espDot" class="dot grey"></span> <span id="espText">ESP: ...</span></div>
     </div>
 
     <div class="target-box">
-      <span class="target-label">TARGET POSITION</span>
+      <span style="font-size:0.8rem; color:#888; font-weight:700;">TARGET</span>
       <div id="targetSpan" class="target-val">0%</div>
-      
-      <input type="range" min="0" max="100" value="0" id="slider" 
-             onchange="sendTarget(this.value)" 
-             oninput="updateLabel(this.value)">
-             
+      <input type="range" min="0" max="100" value="0" id="slider" onchange="sendTarget(this.value)" oninput="updateLabel(this.value)">
       <div class="preset-container">
         <button class="btn-preset" onclick="quickSet(0)">0%</button>
-        <button class="btn-preset" onclick="quickSet(25)">25%</button>
         <button class="btn-preset" onclick="quickSet(50)">50%</button>
-        <button class="btn-preset" onclick="quickSet(75)">75%</button>
         <button class="btn-preset" onclick="quickSet(100)">100%</button>
       </div>
     </div>
     
     <div id="pulseContainer" class="pulse-box">
-      <span class="target-label">ACTUAL POSITION</span>
+      <span style="font-size:0.8rem; color:#888; font-weight:700;">ACTUAL</span>
       <p id="livePulse" class="big-number">--%</p>
     </div>
 
     <div class="info-panel">
-      <div class="info-row">
-        <span>Device IP:</span> <span id="espIP">--</span>
-      </div>
-      <div class="info-row">
-        <span>Uptime:</span> <span id="espUptime">--</span>
-      </div>
+      <div class="info-row"><span>IP:</span> <span id="espIP">--</span></div>
+      <div class="info-row"><span>Uptime:</span> <span id="espUptime">--</span></div>
     </div>
   </div>
 
   <script>
-    // --- MEMORY RESTORE ---
-    var savedTarget = localStorage.getItem("mySavedTarget");
-    if (savedTarget) {
-      updateUI(savedTarget);
-    }
-
-    // --- MQTT SETUP ---
     const mqtt_host = "93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud";
     const mqtt_port = 8884; 
     const mqtt_user = "tohits";
     const mqtt_pass = "toh123@TOH";
-    
-    const topic_pub    = "tohits/set";    
-    const topic_sub    = "tohits/status"; 
-    const topic_online = "tohits/online";
-    const topic_info   = "tohits/info";
+    const topic_pub="tohits/set", topic_sub="tohits/status", topic_online="tohits/online", topic_info="tohits/info", topic_rain="tohits/rain";
 
-    var clientID = "web_" + parseInt(Math.random() * 100, 10);
-    var client = new Paho.MQTT.Client(mqtt_host, mqtt_port, clientID);
-
-    client.onConnectionLost = onConnectionLost;
-    client.onMessageArrived = onMessageArrived;
-
-    var options = { useSSL: true, userName: mqtt_user, password: mqtt_pass, onSuccess: onConnect, onFailure: doFail };
-    
-    client.connect(options);
-
-    // --- FUNCTIONS ---
+    var client = new Paho.MQTT.Client(mqtt_host, mqtt_port, "web_" + parseInt(Math.random()*100));
+    client.onConnectionLost = function(r){ setStatus("web",false); };
+    client.onMessageArrived = onMessage;
+    client.connect({useSSL:true, userName:mqtt_user, password:mqtt_pass, onSuccess:onConnect, onFailure:function(){setStatus("web",false);}});
 
     function onConnect() {
-      console.log("Connected");
       setStatus("web", true);
-      client.subscribe(topic_sub);
-      client.subscribe(topic_online);
-      client.subscribe(topic_info);
+      client.subscribe(topic_sub); client.subscribe(topic_online); client.subscribe(topic_info); client.subscribe(topic_rain);
     }
-
-    function doFail(e) { setStatus("web", false); }
-    function onConnectionLost(r) { if (r.errorCode !== 0) setStatus("web", false); }
 
     function setStatus(type, isOnline) {
-      var dot = document.getElementById(type + "Dot");
-      var txt = document.getElementById(type + "Text");
-      if(isOnline) {
-        dot.className = "dot green";
-        txt.innerText = type.toUpperCase() + ": Online";
-      } else {
-        dot.className = "dot red";
-        txt.innerText = type.toUpperCase() + ": Offline";
-      }
+      document.getElementById(type+"Dot").className = isOnline ? "dot green" : "dot red";
+      document.getElementById(type+"Text").innerText = type.toUpperCase() + (isOnline ? ": Online" : ": Offline");
     }
 
-    function onMessageArrived(message) {
-      var topic = message.destinationName;
-      var payload = message.payloadString;
-
-      if(topic == topic_online) {
-        setStatus("esp", payload == "Online");
-      }
-      else if(topic == topic_info) {
-        try {
-          var data = JSON.parse(payload);
-          document.getElementById("espIP").innerText = data.ip;
-          document.getElementById("espUptime").innerText = data.up;
-        } catch(e) {}
-      }
-      else if(topic == topic_sub) {
-        // Update Actual Position
-        document.getElementById("livePulse").innerText = payload + "%";
-        
-        // Visual Feedback (Green if matched, Orange if moving)
-        var target = document.getElementById("slider").value;
-        var box = document.getElementById("pulseContainer");
-        
-        // Clear classes first
-        box.className = "pulse-box"; 
-        
-        if (Math.abs(payload - target) <= 1) {
-           box.classList.add("active-green");
+    function onMessage(msg) {
+      var pl = msg.payloadString;
+      if(msg.destinationName == topic_rain) {
+        // RAIN LOGIC
+        if(pl == "WET") {
+           document.getElementById("rainBox").style.display = "block";
+           document.getElementById("slider").value = 100; // Visual update
+           document.getElementById("targetSpan").innerText = "100%";
+           document.getElementById("slider").disabled = true; 
         } else {
-           box.classList.add("active-orange");
+           document.getElementById("rainBox").style.display = "none";
+           document.getElementById("slider").disabled = false; 
         }
       }
+      else if(msg.destinationName == topic_sub) document.getElementById("livePulse").innerText = pl + "%";
+      else if(msg.destinationName == topic_online) setStatus("esp", pl == "Online");
+      else if(msg.destinationName == topic_info) {
+        try { var d = JSON.parse(pl); document.getElementById("espIP").innerText = d.ip; document.getElementById("espUptime").innerText = d.up; } catch(e){}
+      }
     }
 
-    // Helper to update slider and text without sending data
-    function updateUI(val) {
-      document.getElementById("slider").value = val;
-      document.getElementById("targetSpan").innerText = val + "%";
-    }
-
-    // Called while dragging
-    function updateLabel(val) {
-      document.getElementById("targetSpan").innerText = val + "%";
-    }
-
-    // Called by Preset Buttons
-    function quickSet(val) {
-      updateUI(val);
-      sendTarget(val);
-    }
-
-    // Send Data
+    function updateLabel(val) { document.getElementById("targetSpan").innerText = val + "%"; }
+    function quickSet(val) { document.getElementById("slider").value = val; sendTarget(val); }
     function sendTarget(val) {
-      localStorage.setItem("mySavedTarget", val);
       document.getElementById("targetSpan").innerText = val + "%";
-      
-      message = new Paho.MQTT.Message(String(val));
-      message.destinationName = topic_pub;
-      client.send(message);
+      var m = new Paho.MQTT.Message(String(val)); m.destinationName = topic_pub; client.send(m);
     }
   </script>
 </body>
