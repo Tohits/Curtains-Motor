@@ -10,27 +10,30 @@
     .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 400px; margin: auto; }
     h2 { margin-top: 0; color: #333; }
     
-    /* Live Pulse Box */
-    .pulse-box {
-      border: 3px solid #ddd; border-radius: 15px; padding: 20px; margin: 25px 0; background-color: #fafafa;
-      transition: border-color 0.3s;
-    }
+    /* Boxes */
+    .pulse-box { border: 3px solid #ddd; border-radius: 15px; padding: 20px; margin: 25px 0; background-color: #fafafa; transition: border-color 0.3s; }
+    .target-box { background: #e3f2fd; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
     
+    /* Fonts */
     .big-number { font-size: 4.5rem; font-weight: bold; color: #333; margin: 0; line-height: 1; }
     .label { font-size: 0.9rem; color: #888; text-transform: uppercase; letter-spacing: 1px;}
-    
-    /* Slider Styling */
-    input[type=range] { width: 100%; height: 15px; margin-top: 10px; cursor: pointer; }
-    
-    /* Target Box */
-    .target-box { background: #e3f2fd; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
     .target-val { color: #007BFF; font-weight: bold; font-size: 1.5rem; }
 
-    /* Connection Status */
-    .status-dot { height: 12px; width: 12px; background-color: #bbb; border-radius: 50%; display: inline-block; margin-right: 5px;}
-    .connected { background-color: #4CAF50; }
-    .disconnected { background-color: #f44336; }
-    .status-text { font-size: 0.8rem; color: #777; margin-bottom: 20px; }
+    /* Slider */
+    input[type=range] { width: 100%; height: 15px; margin-top: 10px; cursor: pointer; }
+    
+    /* STATUS BAR Styling */
+    .status-bar { display: flex; justify-content: space-between; font-size: 0.8rem; color: #666; margin-bottom: 20px; padding: 10px; background: #eee; border-radius: 8px;}
+    .status-item { display: flex; align-items: center; }
+    .dot { height: 10px; width: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+    .green { background-color: #4CAF50; }
+    .red { background-color: #f44336; }
+    .grey { background-color: #bbb; }
+
+    /* INFO PANEL Styling */
+    .info-panel { text-align: left; font-size: 0.85rem; background: #f9f9f9; padding: 15px; border-radius: 10px; margin-top: 20px; color: #555; border: 1px solid #eee; }
+    .info-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .info-label { font-weight: bold; }
   </style>
 </head>
 <body>
@@ -38,41 +41,55 @@
   <div class="card">
     <h2>Smart Control</h2>
     
-    <div class="status-text">
-      <span id="connDot" class="status-dot"></span> <span id="connText">Connecting...</span>
+    <div class="status-bar">
+      <div class="status-item">
+        <span id="webDot" class="dot grey"></span> <span id="webText">Web: Wait</span>
+      </div>
+      <div class="status-item">
+        <span id="espDot" class="dot grey"></span> <span id="espText">ESP: Wait</span>
+      </div>
     </div>
 
     <div class="target-box">
-      <p style="margin:0; font-size:0.9rem; color:#007BFF;">TARGET POSITION</p>
+      <p style="margin:0; font-size:0.9rem; color:#007BFF;">TARGET</p>
       <div id="targetSpan" class="target-val">0%</div>
-      
-      <input type="range" min="0" max="100" value="0" id="slider" 
-             onchange="sendTarget(this.value)" 
-             oninput="updateLabel(this.value)">
+      <input type="range" min="0" max="100" value="0" id="slider" onchange="sendTarget(this.value)" oninput="updateLabel(this.value)">
     </div>
     
     <div id="pulseContainer" class="pulse-box">
-      <p class="label">ACTUAL POSITION</p>
+      <p class="label">ACTUAL</p>
       <p id="livePulse" class="big-number">--%</p>
+    </div>
+
+    <div class="info-panel">
+      <div class="info-row">
+        <span class="info-label">ESP IP:</span> <span id="espIP">--</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Uptime:</span> <span id="espUptime">--</span>
+      </div>
     </div>
   </div>
 
   <script>
-    // --- 1. MEMORY FEATURE: Restore last position on page load ---
+    // --- RESTORE MEMORY ---
     var savedTarget = localStorage.getItem("mySavedTarget");
     if (savedTarget) {
       document.getElementById("slider").value = savedTarget;
       document.getElementById("targetSpan").innerText = savedTarget + "%";
     }
 
-    // --- MQTT CONFIGURATION ---
+    // --- MQTT CONFIG ---
     const mqtt_host = "93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud";
     const mqtt_port = 8884; 
     const mqtt_user = "tohits";
     const mqtt_pass = "toh123@TOH";
     
-    const topic_pub = "tohits/set";    
-    const topic_sub = "tohits/status"; 
+    // Topics
+    const topic_pub    = "tohits/set";    
+    const topic_sub    = "tohits/status"; 
+    const topic_online = "tohits/online";
+    const topic_info   = "tohits/info";
 
     var clientID = "web_" + parseInt(Math.random() * 100, 10);
     var client = new Paho.MQTT.Client(mqtt_host, mqtt_port, clientID);
@@ -80,49 +97,68 @@
     client.onConnectionLost = onConnectionLost;
     client.onMessageArrived = onMessageArrived;
 
-    var options = {
-      useSSL: true,
-      userName: mqtt_user,
-      password: mqtt_pass,
-      onSuccess: onConnect,
-      onFailure: doFail
-    };
-
-    console.log("Connecting...");
+    var options = { useSSL: true, userName: mqtt_user, password: mqtt_pass, onSuccess: onConnect, onFailure: doFail };
+    
     client.connect(options);
 
+    // --- WEB CONNECTION STATUS ---
     function onConnect() {
-      console.log("Connected!");
-      document.getElementById("connDot").className = "status-dot connected";
-      document.getElementById("connText").innerText = "Online";
-      client.subscribe(topic_sub);
+      console.log("Web Connected!");
+      document.getElementById("webDot").className = "dot green";
+      document.getElementById("webText").innerText = "Web: OK";
       
-      // OPTIONAL: If you want to force the motor to the saved position immediately on connect, uncomment this:
-      // sendTarget(document.getElementById("slider").value); 
+      // Subscribe to all updates
+      client.subscribe(topic_sub);    // Position
+      client.subscribe(topic_online); // ESP Status
+      client.subscribe(topic_info);   // ESP Info (IP/Uptime)
     }
 
     function doFail(e) {
-      console.log("Failed: " + e.errorMessage);
-      document.getElementById("connDot").className = "status-dot disconnected";
-      document.getElementById("connText").innerText = "Offline";
+      document.getElementById("webDot").className = "dot red";
+      document.getElementById("webText").innerText = "Web: Fail";
     }
 
     function onConnectionLost(responseObject) {
       if (responseObject.errorCode !== 0) {
-        document.getElementById("connDot").className = "status-dot disconnected";
-        document.getElementById("connText").innerText = "Lost Connection";
+        document.getElementById("webDot").className = "dot red";
+        document.getElementById("webText").innerText = "Web: Lost";
       }
     }
 
+    // --- HANDLE INCOMING DATA ---
     function onMessageArrived(message) {
-      if(message.destinationName == topic_sub) {
-        var val = message.payloadString;
-        document.getElementById("livePulse").innerText = val + "%";
+      var topic = message.destinationName;
+      var payload = message.payloadString;
 
+      // 1. ESP ONLINE STATUS
+      if(topic == topic_online) {
+        if(payload == "Online") {
+          document.getElementById("espDot").className = "dot green";
+          document.getElementById("espText").innerText = "ESP: OK";
+        } else {
+          document.getElementById("espDot").className = "dot red";
+          document.getElementById("espText").innerText = "ESP: Offline";
+        }
+      }
+
+      // 2. ESP INFO (IP & Uptime)
+      else if(topic == topic_info) {
+        // Parse JSON: {"ip":"...", "up":"..."}
+        try {
+          var data = JSON.parse(payload);
+          document.getElementById("espIP").innerText = data.ip;
+          document.getElementById("espUptime").innerText = data.up;
+        } catch(e) { console.log("JSON Error"); }
+      }
+
+      // 3. SLIDER POSITION
+      else if(topic == topic_sub) {
+        document.getElementById("livePulse").innerText = payload + "%";
+        
         var target = document.getElementById("slider").value;
         var box = document.getElementById("pulseContainer");
         
-        if (Math.abs(val - target) <= 1) {
+        if (Math.abs(payload - target) <= 1) {
            box.style.borderColor = "#4CAF50"; 
            box.style.backgroundColor = "#e8f5e9";
         } else {
@@ -132,15 +168,12 @@
       }
     }
 
-    function updateLabel(val) {
-      document.getElementById("targetSpan").innerText = val + "%";
-    }
+    function updateLabel(val) { document.getElementById("targetSpan").innerText = val + "%"; }
 
     function sendTarget(val) {
-      // --- 2. MEMORY FEATURE: Save position whenever changed ---
       localStorage.setItem("mySavedTarget", val);
-      
       document.getElementById("targetSpan").innerText = val + "%";
+      
       message = new Paho.MQTT.Message(val);
       message.destinationName = topic_pub;
       client.send(message);
