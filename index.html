@@ -13,17 +13,23 @@
     /* Live Pulse Box */
     .pulse-box {
       border: 3px solid #ddd; border-radius: 15px; padding: 20px; margin: 25px 0; background-color: #fafafa;
+      transition: border-color 0.3s;
     }
+    
     .big-number { font-size: 4.5rem; font-weight: bold; color: #333; margin: 0; line-height: 1; }
+    .label { font-size: 0.9rem; color: #888; text-transform: uppercase; letter-spacing: 1px;}
     
-    /* Slider */
-    input[type=range] { width: 100%; height: 15px; margin-top: 20px; cursor: pointer; }
+    /* Slider Styling */
+    input[type=range] { width: 100%; height: 15px; margin-top: 10px; cursor: pointer; }
     
-    /* Connection Status Light */
-    .status-dot { height: 15px; width: 15px; background-color: #bbb; border-radius: 50%; display: inline-block; margin-right: 5px;}
+    /* Target Box */
+    .target-box { background: #e3f2fd; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
+    .target-val { color: #007BFF; font-weight: bold; font-size: 1.5rem; }
+
+    /* Connection Status */
+    .status-dot { height: 12px; width: 12px; background-color: #bbb; border-radius: 50%; display: inline-block; margin-right: 5px;}
     .connected { background-color: #4CAF50; }
     .disconnected { background-color: #f44336; }
-    
     .status-text { font-size: 0.8rem; color: #777; margin-bottom: 20px; }
   </style>
 </head>
@@ -36,37 +42,44 @@
       <span id="connDot" class="status-dot"></span> <span id="connText">Connecting...</span>
     </div>
 
-    <div>
-      <p>Set Target: <b id="targetSpan" style="color:#007BFF; font-size: 1.5rem;">0%</b></p>
+    <div class="target-box">
+      <p style="margin:0; font-size:0.9rem; color:#007BFF;">TARGET POSITION</p>
+      <div id="targetSpan" class="target-val">0%</div>
       
-      <input type="range" min="0" max="100" value="0" id="slider" onchange="sendTarget(this.value)" oninput="updateLabel(this.value)">
+      <input type="range" min="0" max="100" value="0" id="slider" 
+             onchange="sendTarget(this.value)" 
+             oninput="updateLabel(this.value)">
     </div>
     
     <div id="pulseContainer" class="pulse-box">
-      <p style="text-transform: uppercase; color: #888; font-size: 0.9rem;">Actual Position</p>
+      <p class="label">ACTUAL POSITION</p>
       <p id="livePulse" class="big-number">--%</p>
     </div>
   </div>
 
   <script>
+    // --- 1. MEMORY FEATURE: Restore last position on page load ---
+    var savedTarget = localStorage.getItem("mySavedTarget");
+    if (savedTarget) {
+      document.getElementById("slider").value = savedTarget;
+      document.getElementById("targetSpan").innerText = savedTarget + "%";
+    }
+
     // --- MQTT CONFIGURATION ---
     const mqtt_host = "93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud";
-    const mqtt_port = 8884; // WebSocket Secure Port
+    const mqtt_port = 8884; 
     const mqtt_user = "tohits";
     const mqtt_pass = "toh123@TOH";
     
-    const topic_pub = "tohits/set";    // We send target percentage here
-    const topic_sub = "tohits/status"; // We receive current percentage here
+    const topic_pub = "tohits/set";    
+    const topic_sub = "tohits/status"; 
 
-    // Create Client
     var clientID = "web_" + parseInt(Math.random() * 100, 10);
     var client = new Paho.MQTT.Client(mqtt_host, mqtt_port, clientID);
 
-    // Set Callbacks
     client.onConnectionLost = onConnectionLost;
     client.onMessageArrived = onMessageArrived;
 
-    // Connect Options
     var options = {
       useSSL: true,
       userName: mqtt_user,
@@ -75,57 +88,62 @@
       onFailure: doFail
     };
 
-    // Attempt Connection
-    console.log("Connecting to HiveMQ...");
+    console.log("Connecting...");
     client.connect(options);
 
     function onConnect() {
       console.log("Connected!");
       document.getElementById("connDot").className = "status-dot connected";
       document.getElementById("connText").innerText = "Online";
-      
-      // Subscribe to updates from NodeMCU
       client.subscribe(topic_sub);
+      
+      // OPTIONAL: If you want to force the motor to the saved position immediately on connect, uncomment this:
+      // sendTarget(document.getElementById("slider").value); 
     }
 
     function doFail(e) {
-      console.log("Connection Failed: " + e.errorMessage);
+      console.log("Failed: " + e.errorMessage);
       document.getElementById("connDot").className = "status-dot disconnected";
-      document.getElementById("connText").innerText = "Offline (Check Console)";
+      document.getElementById("connText").innerText = "Offline";
     }
 
     function onConnectionLost(responseObject) {
       if (responseObject.errorCode !== 0) {
-        console.log("Connection Lost: " + responseObject.errorMessage);
         document.getElementById("connDot").className = "status-dot disconnected";
         document.getElementById("connText").innerText = "Lost Connection";
       }
     }
 
-    // Handle Incoming Messages (From NodeMCU)
     function onMessageArrived(message) {
       if(message.destinationName == topic_sub) {
         var val = message.payloadString;
         document.getElementById("livePulse").innerText = val + "%";
+
+        var target = document.getElementById("slider").value;
+        var box = document.getElementById("pulseContainer");
         
-        // Optional: Update slider position if external change happens
-        // document.getElementById("slider").value = val;
+        if (Math.abs(val - target) <= 1) {
+           box.style.borderColor = "#4CAF50"; 
+           box.style.backgroundColor = "#e8f5e9";
+        } else {
+           box.style.borderColor = "#ff9800"; 
+           box.style.backgroundColor = "#fff3e0";
+        }
       }
     }
 
-    // Update the blue label while dragging
     function updateLabel(val) {
       document.getElementById("targetSpan").innerText = val + "%";
     }
 
-    // Send the final value when slider is released
     function sendTarget(val) {
-      document.getElementById("targetSpan").innerText = val + "%";
+      // --- 2. MEMORY FEATURE: Save position whenever changed ---
+      localStorage.setItem("mySavedTarget", val);
       
+      document.getElementById("targetSpan").innerText = val + "%";
       message = new Paho.MQTT.Message(val);
       message.destinationName = topic_pub;
       client.send(message);
-      console.log("Sent Target: " + val + "%");
     }
   </script>
 </body>
