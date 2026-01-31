@@ -10,10 +10,6 @@
     .card { background: white; width: 100%; max-width: 380px; padding: 30px; border-radius: 24px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); }
     h2 { margin: 0 0 20px 0; font-weight: 700; color: #2c3e50; text-align: center; }
     
-    /* RAIN ALERT BOX - GREEN FOR OPENING */
-    .rain-alert { display: none; background: #00C853; color: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center; font-weight: bold; animation: pulse 1.5s infinite;}
-    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
-
     .status-bar { display: flex; justify-content: space-between; background: #f8f9fa; padding: 10px 15px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; margin-bottom: 25px;}
     .status-item { display: flex; align-items: center; gap: 6px; }
     .dot { height: 8px; width: 8px; border-radius: 50%; }
@@ -38,8 +34,6 @@
   <div class="card">
     <h2>Smart Controller</h2>
     
-    <div id="rainBox" class="rain-alert">☔ RAIN DETECTED! Opening to 100%...</div>
-
     <div class="status-bar">
       <div class="status-item"><span id="webDot" class="dot grey"></span> <span id="webText">Web: ...</span></div>
       <div class="status-item"><span id="espDot" class="dot grey"></span> <span id="espText">ESP: ...</span></div>
@@ -72,7 +66,7 @@
     const mqtt_port = 8884; 
     const mqtt_user = "tohits";
     const mqtt_pass = "toh123@TOH";
-    const topic_pub="tohits/set", topic_sub="tohits/status", topic_online="tohits/online", topic_info="tohits/info", topic_rain="tohits/rain";
+    const topic_pub="tohits/set", topic_sub="tohits/status", topic_online="tohits/online", topic_info="tohits/info";
 
     var client = new Paho.MQTT.Client(mqtt_host, mqtt_port, "web_" + parseInt(Math.random()*100));
     client.onConnectionLost = function(r){ setStatus("web",false); };
@@ -81,7 +75,7 @@
 
     function onConnect() {
       setStatus("web", true);
-      client.subscribe(topic_sub); client.subscribe(topic_online); client.subscribe(topic_info); client.subscribe(topic_rain);
+      client.subscribe(topic_sub); client.subscribe(topic_online); client.subscribe(topic_info);
     }
 
     function setStatus(type, isOnline) {
@@ -91,22 +85,19 @@
 
     function onMessage(msg) {
       var pl = msg.payloadString;
-      if(msg.destinationName == topic_rain) {
-        // RAIN LOGIC
-        if(pl == "WET") {
-           document.getElementById("rainBox").style.display = "block";
-           document.getElementById("slider").value = 100; // Visual update
-           document.getElementById("targetSpan").innerText = "100%";
-           document.getElementById("slider").disabled = true; 
-        } else {
-           document.getElementById("rainBox").style.display = "none";
-           document.getElementById("slider").disabled = false; 
-        }
+      
+      if(msg.destinationName == topic_sub) {
+        document.getElementById("livePulse").innerText = pl + "%";
       }
-      else if(msg.destinationName == topic_sub) document.getElementById("livePulse").innerText = pl + "%";
-      else if(msg.destinationName == topic_online) setStatus("esp", pl == "Online");
+      else if(msg.destinationName == topic_online) {
+        setStatus("esp", pl == "Online");
+      }
       else if(msg.destinationName == topic_info) {
-        try { var d = JSON.parse(pl); document.getElementById("espIP").innerText = d.ip; document.getElementById("espUptime").innerText = d.up; } catch(e){}
+        try { 
+            var d = JSON.parse(pl); 
+            document.getElementById("espIP").innerText = d.ip; 
+            document.getElementById("espUptime").innerText = d.up; 
+        } catch(e){}
       }
     }
 
