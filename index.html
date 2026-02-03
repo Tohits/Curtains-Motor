@@ -35,7 +35,7 @@
 
     h2 { margin: 0 0 20px 0; font-weight: 700; color: #2c3e50; text-align: center; font-size: 1.5rem; }
 
-    /* RAIN ALERT BOX (Hidden by default) */
+    /* RAIN ALERT BOX */
     .rain-alert { 
       display: none; 
       background: #00C853; 
@@ -108,7 +108,7 @@
     <h2>Smart Controller</h2>
 
     <div id="rainBox" class="rain-alert">
-        ☔ RAIN DETECTED!<br>Opening to 100%
+        ☔ RAIN DETECTED!<br>Closing (100%)
     </div>
     
     <div class="status-bar">
@@ -136,87 +136,3 @@
       <input type="text" id="fwUrl" class="update-input" placeholder="Paste Firmware URL (.bin)">
       <button id="btnUpdate" class="update-btn" onclick="sendUpdate()">🚀 Start WAN Update</button>
     </div>
-
-    <div class="info-panel">
-      <div class="info-row"><span>IP:</span> <span id="espIP">--</span></div>
-      <div class="info-row"><span>Status:</span> <span id="espUptime">--</span></div>
-    </div>
-  </div>
-
-  <script>
-    const mqtt_host = "93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud";
-    const mqtt_port = 8884; 
-    const mqtt_user = "tohits";
-    const mqtt_pass = "toh123@TOH";
-    
-    // Topics
-    const topic_pub="tohits/set", topic_sub="tohits/status", topic_online="tohits/online", topic_info="tohits/info";
-    const topic_update="tohits/update", topic_rain="tohits/rain"; 
-
-    var client = new Paho.MQTT.Client(mqtt_host, mqtt_port, "web_" + parseInt(Math.random()*100));
-    client.onConnectionLost = function(r){ setStatus("web",false); };
-    client.onMessageArrived = onMessage;
-    client.connect({useSSL:true, userName:mqtt_user, password:mqtt_pass, onSuccess:onConnect, onFailure:function(){setStatus("web",false);}});
-
-    function onConnect() {
-      setStatus("web", true);
-      client.subscribe(topic_sub); 
-      client.subscribe(topic_online); 
-      client.subscribe(topic_info); 
-      client.subscribe(topic_rain); // <--- Listening for Rain
-    }
-
-    function setStatus(type, isOnline) {
-      document.getElementById(type+"Dot").className = isOnline ? "dot green" : "dot red";
-      document.getElementById(type+"Text").innerText = type.toUpperCase() + (isOnline ? ": Online" : ": Offline");
-    }
-
-    function onMessage(msg) {
-      var pl = msg.payloadString;
-
-      // --- RAIN LOGIC ---
-      if(msg.destinationName == topic_rain) {
-         if(pl == "WET") {
-             // Show Alert & Force 100%
-             document.getElementById("rainBox").style.display = "block";
-             document.getElementById("slider").value = 100;
-             document.getElementById("targetSpan").innerText = "100%";
-             document.getElementById("slider").disabled = true; // Lock slider for safety
-         } else {
-             // Hide Alert & Unlock
-             document.getElementById("rainBox").style.display = "none";
-             document.getElementById("slider").disabled = false;
-         }
-      }
-      else if(msg.destinationName == topic_online) setStatus("esp", pl == "Online");
-      else if(msg.destinationName == topic_sub) document.getElementById("livePulse").innerText = pl + "%";
-      else if(msg.destinationName == topic_info) {
-        try { 
-            var d = JSON.parse(pl); 
-            if(d.status) document.getElementById("espUptime").innerText = d.status;
-            else { document.getElementById("espIP").innerText = d.ip; document.getElementById("espUptime").innerText = d.up; }
-        } catch(e){}
-      }
-    }
-
-    function updateLabel(val) { document.getElementById("targetSpan").innerText = val + "%"; }
-    function quickSet(val) { document.getElementById("slider").value = val; sendTarget(val); }
-    function sendTarget(val) {
-      document.getElementById("targetSpan").innerText = val + "%";
-      var m = new Paho.MQTT.Message(String(val)); m.destinationName = topic_pub; client.send(m);
-    }
-
-    function sendUpdate() {
-        var url = document.getElementById("fwUrl").value;
-        if(url.length < 10) { alert("Please enter a valid URL!"); return; }
-        
-        if(confirm("Start Update? Device will restart.")) {
-            var m = new Paho.MQTT.Message(url); 
-            m.destinationName = topic_update; 
-            client.send(m);
-            alert("Update command sent! Please wait ~1 min for restart.");
-        }
-    }
-  </script>
-</body>
-</html>
