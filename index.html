@@ -7,7 +7,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-    /* 1. UNIVERSAL RESET FOR AUTOFIT */
+    /* 1. UNIVERSAL RESET */
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
     body { 
@@ -22,7 +22,6 @@
       color: #333;
     }
 
-    /* 2. RESPONSIVE CARD */
     .card { 
       background: white; 
       width: 100%; 
@@ -36,6 +35,21 @@
 
     h2 { margin: 0 0 20px 0; font-weight: 700; color: #2c3e50; text-align: center; font-size: 1.5rem; }
 
+    /* RAIN ALERT BOX (Hidden by default) */
+    .rain-alert { 
+      display: none; 
+      background: #00C853; 
+      color: white; 
+      padding: 15px; 
+      border-radius: 12px; 
+      margin-bottom: 20px; 
+      text-align: center; 
+      font-weight: bold; 
+      box-shadow: 0 4px 15px rgba(0, 200, 83, 0.4);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
+
     .status-bar { display: flex; justify-content: space-between; background: #f8f9fa; padding: 12px 15px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; margin-bottom: 25px;}
     .status-item { display: flex; align-items: center; gap: 8px; }
     .dot { height: 10px; width: 10px; border-radius: 50%; }
@@ -44,7 +58,6 @@
     .target-box { text-align: center; margin-bottom: 25px; }
     .target-val { font-size: 3.5rem; font-weight: 700; color: #3f51b5; line-height: 1.2; }
     
-    /* SLIDER STYLING */
     input[type=range] { 
       width: 100%; 
       margin: 20px 0; 
@@ -81,7 +94,6 @@
     .pulse-box { text-align: center; padding: 20px; border-radius: 16px; background: white; border: 2px solid #f0f0f0; }
     .big-number { font-size: 2.5rem; font-weight: 700; color: #333; margin: 5px 0 0 0; }
     
-    /* UPDATE SECTION (Simple) */
     .update-box { margin-top: 25px; background: #ECEFF1; padding: 15px; border-radius: 12px; }
     .update-input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box; }
     .update-btn { width: 100%; padding: 12px; background: #607D8B; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem;}
@@ -94,6 +106,10 @@
 <body>
   <div class="card">
     <h2>Smart Controller</h2>
+
+    <div id="rainBox" class="rain-alert">
+        ☔ RAIN DETECTED!<br>Opening to 100%
+    </div>
     
     <div class="status-bar">
       <div class="status-item"><span id="webDot" class="dot grey"></span> <span id="webText">Web: ...</span></div>
@@ -132,8 +148,10 @@
     const mqtt_port = 8884; 
     const mqtt_user = "tohits";
     const mqtt_pass = "toh123@TOH";
+    
+    // Topics
     const topic_pub="tohits/set", topic_sub="tohits/status", topic_online="tohits/online", topic_info="tohits/info";
-    const topic_update="tohits/update"; 
+    const topic_update="tohits/update", topic_rain="tohits/rain"; 
 
     var client = new Paho.MQTT.Client(mqtt_host, mqtt_port, "web_" + parseInt(Math.random()*100));
     client.onConnectionLost = function(r){ setStatus("web",false); };
@@ -142,7 +160,10 @@
 
     function onConnect() {
       setStatus("web", true);
-      client.subscribe(topic_sub); client.subscribe(topic_online); client.subscribe(topic_info);
+      client.subscribe(topic_sub); 
+      client.subscribe(topic_online); 
+      client.subscribe(topic_info); 
+      client.subscribe(topic_rain); // <--- Listening for Rain
     }
 
     function setStatus(type, isOnline) {
@@ -153,7 +174,21 @@
     function onMessage(msg) {
       var pl = msg.payloadString;
 
-      if(msg.destinationName == topic_online) setStatus("esp", pl == "Online");
+      // --- RAIN LOGIC ---
+      if(msg.destinationName == topic_rain) {
+         if(pl == "WET") {
+             // Show Alert & Force 100%
+             document.getElementById("rainBox").style.display = "block";
+             document.getElementById("slider").value = 100;
+             document.getElementById("targetSpan").innerText = "100%";
+             document.getElementById("slider").disabled = true; // Lock slider for safety
+         } else {
+             // Hide Alert & Unlock
+             document.getElementById("rainBox").style.display = "none";
+             document.getElementById("slider").disabled = false;
+         }
+      }
+      else if(msg.destinationName == topic_online) setStatus("esp", pl == "Online");
       else if(msg.destinationName == topic_sub) document.getElementById("livePulse").innerText = pl + "%";
       else if(msg.destinationName == topic_info) {
         try { 
@@ -176,7 +211,6 @@
         if(url.length < 10) { alert("Please enter a valid URL!"); return; }
         
         if(confirm("Start Update? Device will restart.")) {
-            // Send Command
             var m = new Paho.MQTT.Message(url); 
             m.destinationName = topic_update; 
             client.send(m);
