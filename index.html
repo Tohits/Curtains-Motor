@@ -1,36 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Smart Knob Pro</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Inter', sans-serif; background: #eef2f5; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; color: #333;}
-    .card { background: white; width: 100%; max-width: 380px; padding: 30px; border-radius: 24px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); }
-    h2 { margin: 0 0 20px 0; font-weight: 700; color: #2c3e50; text-align: center; }
-    
-    .status-bar { display: flex; justify-content: space-between; background: #f8f9fa; padding: 10px 15px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; margin-bottom: 25px;}
-    .status-item { display: flex; align-items: center; gap: 6px; }
-    .dot { height: 8px; width: 8px; border-radius: 50%; }
+    /* 1. UNIVERSAL RESET FOR AUTOFIT */
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body { 
+      font-family: 'Inter', sans-serif; 
+      background: #eef2f5; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      min-height: 100vh; 
+      margin: 0; 
+      padding: 20px; 
+      color: #333;
+    }
+
+    /* 2. RESPONSIVE CARD */
+    .card { 
+      background: white; 
+      width: 100%; 
+      max-width: 400px; 
+      padding: 30px; 
+      border-radius: 24px; 
+      box-shadow: 0 15px 35px rgba(0,0,0,0.08); 
+      display: flex;
+      flex-direction: column;
+    }
+
+    h2 { margin: 0 0 20px 0; font-weight: 700; color: #2c3e50; text-align: center; font-size: 1.5rem; }
+
+    .status-bar { display: flex; justify-content: space-between; background: #f8f9fa; padding: 12px 15px; border-radius: 12px; font-size: 0.85rem; font-weight: 600; margin-bottom: 25px;}
+    .status-item { display: flex; align-items: center; gap: 8px; }
+    .dot { height: 10px; width: 10px; border-radius: 50%; }
     .green { background-color: #00c853; } .red { background-color: #ff3d00; } .grey { background-color: #b0bec5; }
 
     .target-box { text-align: center; margin-bottom: 25px; }
-    .target-val { font-size: 3rem; font-weight: 700; color: #3f51b5; }
-    input[type=range] { width: 100%; margin: 15px 0; }
+    .target-val { font-size: 3.5rem; font-weight: 700; color: #3f51b5; line-height: 1.2; }
     
+    /* SLIDER STYLING */
+    input[type=range] { 
+      width: 100%; 
+      margin: 20px 0; 
+      height: 6px; 
+      background: #ddd; 
+      border-radius: 5px; 
+      outline: none; 
+      -webkit-appearance: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px; height: 24px;
+      background: #3f51b5;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid white;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+
     .preset-container { display: flex; justify-content: space-between; margin-bottom: 30px; gap: 10px; }
-    .btn-preset { flex: 1; padding: 10px; border: none; border-radius: 8px; background: #f1f3f9; cursor: pointer; font-weight: 600; }
-    .btn-preset:active { background: #3f51b5; color: white; }
+    .btn-preset { 
+      flex: 1; 
+      padding: 12px; 
+      border: none; 
+      border-radius: 12px; 
+      background: #f1f3f9; 
+      cursor: pointer; 
+      font-weight: 600; 
+      font-size: 1rem;
+      transition: background 0.2s;
+    }
+    .btn-preset:active { background: #3f51b5; color: white; transform: scale(0.95); }
 
     .pulse-box { text-align: center; padding: 20px; border-radius: 16px; background: white; border: 2px solid #f0f0f0; }
     .big-number { font-size: 2.5rem; font-weight: 700; color: #333; margin: 5px 0 0 0; }
     
-    /* UPDATE SECTION */
+    /* UPDATE SECTION (Simple) */
     .update-box { margin-top: 25px; background: #ECEFF1; padding: 15px; border-radius: 12px; }
-    .update-input { width: 90%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.8rem; }
-    .update-btn { width: 100%; padding: 10px; background: #607D8B; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-    .update-btn:hover { background: #546E7A; }
+    .update-input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box; }
+    .update-btn { width: 100%; padding: 12px; background: #607D8B; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem;}
+    .update-btn:active { background: #455A64; }
 
     .info-panel { margin-top: 25px; font-size: 0.75rem; color: #999; border-top: 1px solid #eee; padding-top: 15px; }
     .info-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
@@ -62,8 +117,8 @@
     </div>
 
     <div class="update-box">
-      <input type="text" id="fwUrl" class="update-input" placeholder="Paste Firmware URL here (.bin)">
-      <button class="update-btn" onclick="sendUpdate()">🚀 Start WAN Update</button>
+      <input type="text" id="fwUrl" class="update-input" placeholder="Paste Firmware URL (.bin)">
+      <button id="btnUpdate" class="update-btn" onclick="sendUpdate()">🚀 Start WAN Update</button>
     </div>
 
     <div class="info-panel">
@@ -78,7 +133,7 @@
     const mqtt_user = "tohits";
     const mqtt_pass = "toh123@TOH";
     const topic_pub="tohits/set", topic_sub="tohits/status", topic_online="tohits/online", topic_info="tohits/info";
-    const topic_update="tohits/update"; // New Update Topic
+    const topic_update="tohits/update"; 
 
     var client = new Paho.MQTT.Client(mqtt_host, mqtt_port, "web_" + parseInt(Math.random()*100));
     client.onConnectionLost = function(r){ setStatus("web",false); };
@@ -97,18 +152,14 @@
 
     function onMessage(msg) {
       var pl = msg.payloadString;
-      if(msg.destinationName == topic_sub) document.getElementById("livePulse").innerText = pl + "%";
-      else if(msg.destinationName == topic_online) setStatus("esp", pl == "Online");
+
+      if(msg.destinationName == topic_online) setStatus("esp", pl == "Online");
+      else if(msg.destinationName == topic_sub) document.getElementById("livePulse").innerText = pl + "%";
       else if(msg.destinationName == topic_info) {
         try { 
             var d = JSON.parse(pl); 
-            // If message has "status" (like 'Updating...'), show that instead of uptime
-            if(d.status) {
-                document.getElementById("espUptime").innerText = d.status;
-            } else {
-                document.getElementById("espIP").innerText = d.ip; 
-                document.getElementById("espUptime").innerText = d.up; 
-            }
+            if(d.status) document.getElementById("espUptime").innerText = d.status;
+            else { document.getElementById("espIP").innerText = d.ip; document.getElementById("espUptime").innerText = d.up; }
         } catch(e){}
       }
     }
@@ -120,16 +171,16 @@
       var m = new Paho.MQTT.Message(String(val)); m.destinationName = topic_pub; client.send(m);
     }
 
-    // --- SEND UPDATE COMMAND ---
     function sendUpdate() {
         var url = document.getElementById("fwUrl").value;
         if(url.length < 10) { alert("Please enter a valid URL!"); return; }
         
-        if(confirm("Are you sure? This will restart the device.")) {
+        if(confirm("Start Update? Device will restart.")) {
+            // Send Command
             var m = new Paho.MQTT.Message(url); 
             m.destinationName = topic_update; 
             client.send(m);
-            alert("Update command sent! Watch the status.");
+            alert("Update command sent! Please wait ~1 min for restart.");
         }
     }
   </script>
