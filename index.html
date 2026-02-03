@@ -26,6 +26,12 @@
     .pulse-box { text-align: center; padding: 20px; border-radius: 16px; background: white; border: 2px solid #f0f0f0; }
     .big-number { font-size: 2.5rem; font-weight: 700; color: #333; margin: 5px 0 0 0; }
     
+    /* UPDATE SECTION */
+    .update-box { margin-top: 25px; background: #ECEFF1; padding: 15px; border-radius: 12px; }
+    .update-input { width: 90%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.8rem; }
+    .update-btn { width: 100%; padding: 10px; background: #607D8B; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    .update-btn:hover { background: #546E7A; }
+
     .info-panel { margin-top: 25px; font-size: 0.75rem; color: #999; border-top: 1px solid #eee; padding-top: 15px; }
     .info-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
   </style>
@@ -55,9 +61,14 @@
       <p id="livePulse" class="big-number">--%</p>
     </div>
 
+    <div class="update-box">
+      <input type="text" id="fwUrl" class="update-input" placeholder="Paste Firmware URL here (.bin)">
+      <button class="update-btn" onclick="sendUpdate()">🚀 Start WAN Update</button>
+    </div>
+
     <div class="info-panel">
       <div class="info-row"><span>IP:</span> <span id="espIP">--</span></div>
-      <div class="info-row"><span>Uptime:</span> <span id="espUptime">--</span></div>
+      <div class="info-row"><span>Status:</span> <span id="espUptime">--</span></div>
     </div>
   </div>
 
@@ -67,6 +78,7 @@
     const mqtt_user = "tohits";
     const mqtt_pass = "toh123@TOH";
     const topic_pub="tohits/set", topic_sub="tohits/status", topic_online="tohits/online", topic_info="tohits/info";
+    const topic_update="tohits/update"; // New Update Topic
 
     var client = new Paho.MQTT.Client(mqtt_host, mqtt_port, "web_" + parseInt(Math.random()*100));
     client.onConnectionLost = function(r){ setStatus("web",false); };
@@ -85,18 +97,18 @@
 
     function onMessage(msg) {
       var pl = msg.payloadString;
-      
-      if(msg.destinationName == topic_sub) {
-        document.getElementById("livePulse").innerText = pl + "%";
-      }
-      else if(msg.destinationName == topic_online) {
-        setStatus("esp", pl == "Online");
-      }
+      if(msg.destinationName == topic_sub) document.getElementById("livePulse").innerText = pl + "%";
+      else if(msg.destinationName == topic_online) setStatus("esp", pl == "Online");
       else if(msg.destinationName == topic_info) {
         try { 
             var d = JSON.parse(pl); 
-            document.getElementById("espIP").innerText = d.ip; 
-            document.getElementById("espUptime").innerText = d.up; 
+            // If message has "status" (like 'Updating...'), show that instead of uptime
+            if(d.status) {
+                document.getElementById("espUptime").innerText = d.status;
+            } else {
+                document.getElementById("espIP").innerText = d.ip; 
+                document.getElementById("espUptime").innerText = d.up; 
+            }
         } catch(e){}
       }
     }
@@ -106,6 +118,19 @@
     function sendTarget(val) {
       document.getElementById("targetSpan").innerText = val + "%";
       var m = new Paho.MQTT.Message(String(val)); m.destinationName = topic_pub; client.send(m);
+    }
+
+    // --- SEND UPDATE COMMAND ---
+    function sendUpdate() {
+        var url = document.getElementById("fwUrl").value;
+        if(url.length < 10) { alert("Please enter a valid URL!"); return; }
+        
+        if(confirm("Are you sure? This will restart the device.")) {
+            var m = new Paho.MQTT.Message(url); 
+            m.destinationName = topic_update; 
+            client.send(m);
+            alert("Update command sent! Watch the status.");
+        }
     }
   </script>
 </body>
