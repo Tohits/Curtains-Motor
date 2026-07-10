@@ -13,26 +13,26 @@
         .value { font-size: 2em; font-weight: bold; margin-top: 10px; }
         .target { color: #007BFF; }
         .current { color: #28A745; }
-        #status { color: #888; font-size: 0.9em; }
+        #status { color: #888; font-size: 0.9em; margin-bottom: 20px;}
     </style>
 </head>
 <body>
     <h2>Position Controller</h2>
-    <p id="status">Connecting to HiveMQ Cloud...</p>
+    <div id="status">Connecting to HiveMQ Cloud...</div>
     
     <div class="dashboard">
         <div class="card">
-            <div>Target</div>
-            <div id="targetValue" class="value target">100</div>
+            <div>Target (%)</div>
+            <div id="targetValue" class="value target">0</div>
         </div>
         <div class="card">
-            <div>Current</div>
-            <div id="currentValue" class="value current">100</div>
+            <div>Current (%)</div>
+            <div id="currentValue" class="value current">0</div>
         </div>
     </div>
 
-    <p>Move slider to set target position (0 - 100):</p>
-    <input type="range" min="0" max="100" value="100" id="pulseSlider" onchange="sendTarget(this.value)" oninput="updateUI(this.value)">
+    <p>Move slider to set target position (0% - 100%):</p>
+    <input type="range" min="0" max="100" value="0" id="pulseSlider" onchange="sendTarget(this.value)" oninput="updateUI(this.value)">
 
     <script>
         // --- MQTT CONFIGURATION ---
@@ -49,7 +49,6 @@
         const clientID = "web_" + Math.random().toString(16).substr(2, 8);
         const client = new Paho.MQTT.Client(mqtt_host, mqtt_port, clientID);
 
-        // Define Callbacks
         client.onConnectionLost = onConnectionLost;
         client.onMessageArrived = onMessageArrived;
 
@@ -68,7 +67,7 @@
         function onConnect() {
             document.getElementById("status").innerText = "🟢 Connected to Cloud";
             document.getElementById("status").style.color = "green";
-            // Subscribe to the ESP's live pulse feed
+            // Listen for the ESP's live percentage feed
             client.subscribe(topic_current);
         }
 
@@ -79,25 +78,24 @@
             }
         }
 
-        // When the ESP sends a pulse update, show it on the screen
+        // When ESP sends a percentage update, show it on the screen
         function onMessageArrived(message) {
             if(message.destinationName === topic_current) {
                 document.getElementById('currentValue').innerText = message.payloadString;
             }
         }
 
-        // Updates the blue box instantly when dragging
         function updateUI(val) {
             document.getElementById('targetValue').innerText = val;
         }
 
-        // Sends the command to the ESP when you release the slider
+        // Sends 0-100 percentage to the ESP
         function sendTarget(val) {
             if(client.isConnected()) {
                 let message = new Paho.MQTT.Message(val.toString());
                 message.destinationName = topic_target;
                 client.send(message);
-                console.log("Sent Target:", val);
+                console.log("Sent Target % :", val);
             }
         }
     </script>
