@@ -2,125 +2,378 @@
 <html lang="en">
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Global Position Controller</title>
+    <title>Global Position & Relay Controller</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <style>
         :root {
             --bg-gradient: radial-gradient(circle at 50% 50%, #0d121f 0%, #05070a 100%);
             --card-bg: rgba(21, 28, 45, 0.7);
+            --card-border: rgba(59, 130, 246, 0.15);
             --text-main: #f1f5f9;
             --text-muted: #64748b;
             --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.35);
             --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.35);
+            --warning: #f59e0b;
             --danger: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.35);
         }
 
-        body { display: flex; flex-direction: column; align-items: center; min-height: 100vh; background: var(--bg-gradient); color: var(--text-main); padding: 20px; font-family: sans-serif; }
-        .container { width: 100%; max-width: 500px; background: rgba(10, 15, 26, 0.65); border: 1px solid rgba(255, 255, 255, 0.05); padding: 30px; border-radius: 24px; box-shadow: 0 25px 50px rgba(0,0,0,0.5); }
-        h2 { text-align: center; color: #fff; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; font-size: 1.2rem; }
-        
-        .status-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-        .status-badge { font-size: 0.65rem; text-align: center; padding: 8px; border-radius: 10px; background: rgba(255,255,255,0.05); }
-        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--danger); }
-        .online { background: var(--success); }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 
-        .dashboard { display: flex; gap: 15px; margin-bottom: 20px; }
-        .card { background: var(--card-bg); padding: 20px; border-radius: 16px; flex: 1; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
-        .value { font-size: 2rem; font-weight: bold; margin-top: 10px; color: var(--primary); }
-        
-        .relay-panel { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 15px; margin-bottom: 20px; display: flex; justify-content: space-around; }
-        .relay-unit { text-align: center; color: var(--text-muted); font-size: 0.7rem; }
-        .led { width: 12px; height: 12px; border-radius: 50%; background: #334155; margin: 0 auto 8px auto; }
-        .active { color: var(--success); }
-        .active .led { background: var(--success); box-shadow: 0 0 10px var(--success); }
+        body { 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; background: var(--bg-gradient); color: var(--text-main); padding: 20px;
+        }
 
-        input[type=range] { width: 100%; margin: 20px 0; }
-        .reboot-btn { width: 100%; padding: 12px; border-radius: 12px; border: none; background: #ef4444; color: white; font-weight: bold; cursor: pointer; text-transform: uppercase; }
+        .container {
+            width: 100%; max-width: 500px; background: rgba(10, 15, 26, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.05); backdrop-filter: blur(16px);
+            padding: 30px 20px; border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        h2 { 
+            font-size: 1.3rem; font-weight: 800; letter-spacing: -0.03em; text-transform: uppercase;
+            background: linear-gradient(to right, #93c5fd, #3b82f6); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; margin-bottom: 20px; text-align: center;
+        }
+
+        .status-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 25px; }
+
+        .status-badge {
+            font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+            padding: 10px 6px; border-radius: 12px; background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06); display: flex; flex-direction: column;
+            align-items: center; gap: 4px; text-align: center; transition: all 0.3s;
+        }
+
+        .status-badge span.label { color: var(--text-muted); font-size: 0.6rem; }
+
+        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+        .dot.connected { background-color: var(--success); box-shadow: 0 0 8px var(--success); }
+        .dot.warning { background-color: var(--warning); box-shadow: 0 0 8px var(--warning); }
+        .dot.disconnected { background-color: var(--danger); box-shadow: 0 0 8px var(--danger); }
+        
+        @keyframes flashRed { 0% { box-shadow: 0 0 15px var(--danger); background-color: rgba(239, 68, 68, 0.2); } 50% { box-shadow: 0 0 5px transparent; background-color: transparent; } 100% { box-shadow: 0 0 15px var(--danger); background-color: rgba(239, 68, 68, 0.2); } }
+        .badge-stalled { animation: flashRed 1s infinite; border-color: var(--danger) !important; }
+
+        .reboot-val { color: #38bdf8; font-family: monospace; font-size: 0.75rem; font-weight: 700; }
+
+        .dashboard { display: flex; gap: 12px; margin-bottom: 25px; }
+        .card { background: var(--card-bg); padding: 16px 12px; border-radius: 16px; flex: 1; border: 1px solid var(--card-border); text-align: center; }
+        .card-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; }
+        .value { font-size: 2.4rem; font-weight: 900; margin-top: 5px; font-variant-numeric: tabular-nums; }
+        .target { color: var(--primary); text-shadow: 0 0 20px var(--primary-glow); }
+        .current { color: var(--success); text-shadow: 0 0 20px var(--success-glow); }
+
+        .relay-panel { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 18px; padding: 15px; margin-bottom: 25px; }
+        .relay-panel-title { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 12px; text-align: center; }
+        .relay-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .relay-unit { background: #101726; border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 12px; padding: 10px 5px; text-align: center; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .relay-unit.active { background: rgba(16, 185, 129, 0.08); border-color: var(--success); box-shadow: 0 0 12px rgba(16, 185, 129, 0.15); }
+        .relay-unit.stalled { background: rgba(239, 68, 68, 0.08); border-color: var(--danger); box-shadow: 0 0 12px rgba(239, 68, 68, 0.15); }
+        
+        .relay-unit .led { width: 10px; height: 10px; border-radius: 50%; background: #334155; margin: 0 auto 6px auto; transition: all 0.3s; }
+        .relay-unit.active .led { background: var(--success); box-shadow: 0 0 10px var(--success); }
+        .relay-unit.stalled .led { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
+        
+        .relay-unit .name { font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+        .relay-unit.active .name { color: var(--success); }
+        .relay-unit.stalled .name { color: var(--danger); }
+
+        .slider-section { width: 100%; }
+        .slider-label { color: var(--text-muted); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: block; }
+        input[type=range] { -webkit-appearance: none; width: 100%; height: 8px; border-radius: 100px; background: #1e293b; outline: none; margin: 15px 0; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #ffffff; border: 4px solid var(--primary); cursor: pointer; box-shadow: 0 0 15px var(--primary-glow); transition: transform 0.15s ease, background-color 0.2s; }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); background: var(--primary); border-color: #ffffff; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>System Control</h2>
+        <h2>Position Command Center</h2>
         
         <div class="status-container">
-            <div class="status-badge">Web<br><span id="webDot" class="dot"></span> <span id="webStatus">Offline</span></div>
-            <div class="status-badge">ESP<br><span id="espDot" class="dot"></span> <span id="espStatus">Offline</span></div>
-            <div class="status-badge">Next Restart<br><span id="rebootTimer">--:--:--</span></div>
+            <div class="status-badge">
+                <span class="label">Cloud MQTT</span>
+                <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+                    <span class="dot disconnected" id="webDot"></span>
+                    <span id="webStatus" style="color: var(--danger);">Offline</span>
+                </div>
+            </div>
+            <div class="status-badge" id="espBadge">
+                <span class="label">ESP Hardware</span>
+                <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+                    <span class="dot disconnected" id="espDot"></span>
+                    <span id="espStatus" style="color: var(--danger);">Offline</span>
+                </div>
+            </div>
+            <div class="status-badge">
+                <span class="label">Next Restart</span>
+                <div style="margin-top: 2px;">
+                    <span class="reboot-val" id="rebootTimer">--:--:--</span>
+                </div>
+            </div>
         </div>
-
+        
         <div class="dashboard">
-            <div class="card"><div>Target</div><div id="targetValue" class="value">0%</div></div>
-            <div class="card"><div>Current</div><div id="currentValue" class="value">0%</div></div>
+            <div class="card">
+                <div class="card-title">Target Pos</div>
+                <div id="targetValue" class="value target">0%</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Current Read</div>
+                <div id="currentValue" class="value current">0%</div>
+            </div>
         </div>
 
         <div class="relay-panel">
-            <div class="relay-unit" id="r1"><div class="led"></div>R1 FWD</div>
-            <div class="relay-unit" id="r2"><div class="led"></div>R2 FWD</div>
-            <div class="relay-unit" id="r3"><div class="led"></div>R3 REV</div>
-            <div class="relay-unit" id="r4"><div class="led"></div>R4 REV</div>
+            <div class="relay-panel-title">Active Relay Monitoring</div>
+            <div class="relay-grid">
+                <div class="relay-unit" id="r1">
+                    <div class="led"></div>
+                    <div class="name">R1 FWD</div>
+                </div>
+                <div class="relay-unit" id="r2">
+                    <div class="led"></div>
+                    <div class="name">R2 FWD</div>
+                </div>
+                <div class="relay-unit" id="r3">
+                    <div class="led"></div>
+                    <div class="name">R3 REV</div>
+                </div>
+                <div class="relay-unit" id="r4">
+                    <div class="led"></div>
+                    <div class="name">R4 REV</div>
+                </div>
+            </div>
         </div>
 
-        <input type="range" min="0" max="100" value="0" id="pulseSlider" onchange="sendTarget(this.value)" oninput="updateUI(this.value)">
-        
-        <button class="reboot-btn" onclick="sendReboot()">Reboot System</button>
+        <div class="slider-section">
+            <label class="slider-label" for="pulseSlider">Command Output Slider</label>
+            <input type="range" min="0" max="100" value="0" id="pulseSlider" onchange="sendTarget(this.value)" oninput="updateUI(this.value)">
+        </div>
     </div>
 
     <script>
-        const client = new Paho.MQTT.Client("93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud", 8884, "web_" + Math.random());
+        const mqtt_host = "93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud";
+        const mqtt_port = 8884; // WebSocket port
+        const mqtt_user = "tohits";
+        const mqtt_pass = "toh123@TOH";
         
-        client.onConnectionLost = (e) => { updateWebStatus(false); setTimeout(connect, 5000); };
-        
-        client.onMessageArrived = (m) => {
-            const topic = m.destinationName;
-            const payload = m.payloadString;
-            
-            if (topic === "tohits/current") document.getElementById('currentValue').innerText = payload + "%";
-            if (topic === "tohits/target") { document.getElementById('targetValue').innerText = payload + "%"; document.getElementById('pulseSlider').value = payload; }
-            if (topic === "tohits/relay") updateRelays(payload);
-            if (topic === "tohits/status") updateESPStatus(payload === "online");
-            if (topic === "tohits/restart_in") document.getElementById('rebootTimer').innerText = formatTime(parseInt(payload));
-        };
+        const topic_target = "tohits/target";
+        const topic_current = "tohits/current";
+        const topic_status = "tohits/status";
+        const topic_relay = "tohits/relay";
+        const topic_restart = "tohits/restart_in"; 
 
-        function formatTime(s) {
-            const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-            return [h, m, sec].map(v => v < 10 ? "0" + v : v).join(":");
+        const clientID = "web_" + Math.random().toString(16).substring(2, 10);
+        const client = new Paho.MQTT.Client(mqtt_host, mqtt_port, clientID);
+
+        let isESPOnline = false;
+        let localCountdownInterval = null;
+        let remainingSeconds = 0;
+        let cachedRestartSeconds = 0; 
+
+        client.onConnectionLost = onConnectionLost;
+        client.onMessageArrived = onMessageArrived;
+
+        connectMQTT();
+
+        function connectMQTT() {
+            updateWebStatus("Connecting...", "warning");
+            client.connect({
+                userName: mqtt_user,
+                password: mqtt_pass,
+                useSSL: true,
+                onSuccess: onConnect,
+                onFailure: onConnectFailure
+            });
         }
 
-        function updateWebStatus(online) {
-            document.getElementById('webDot').className = online ? "dot online" : "dot";
-            document.getElementById('webStatus').innerText = online ? "Online" : "Offline";
+        function onConnect() {
+            updateWebStatus("Connected", "connected");
+            client.subscribe(topic_current);
+            client.subscribe(topic_status);
+            client.subscribe(topic_relay);
+            client.subscribe(topic_target); 
+            client.subscribe(topic_restart); 
         }
 
-        function updateESPStatus(online) {
-            document.getElementById('espDot').className = online ? "dot online" : "dot";
-            document.getElementById('espStatus').innerText = online ? "Online" : "Offline";
+        function onConnectFailure(e) {
+            updateWebStatus("Failed", "disconnected");
+            setTimeout(connectMQTT, 5000);
         }
 
-        function connect() {
-            client.connect({ userName: "tohits", password: "toh123@TOH", useSSL: true, onSuccess: () => {
-                updateWebStatus(true);
-                client.subscribe("tohits/#"); // Subscribe to all topics
-            }});
+        function onConnectionLost(responseObject) {
+            updateWebStatus("Offline", "disconnected");
+            updateESPStatus("Offline", "disconnected"); 
+            isESPOnline = false;
+            stopLocalCountdown();
+            setTimeout(connectMQTT, 5000);
         }
 
-        function updateUI(val) { document.getElementById('targetValue').innerText = val + "%"; }
+        function onMessageArrived(message) {
+            const topic = message.destinationName;
+            const payload = message.payloadString;
 
-        function sendTarget(val) { client.send("tohits/target", val.toString()); }
-
-        function sendReboot() {
-            if (confirm("Are you sure you want to reboot the ESP system?")) {
-                client.send("tohits/command", "REBOOT");
+            if (topic === topic_current) {
+                document.getElementById('currentValue').innerText = payload + "%";
+            } 
+            else if (topic === topic_target) {
+                document.getElementById('targetValue').innerText = payload + "%";
+                document.getElementById('pulseSlider').value = payload;
+            }
+            else if (topic === topic_status) {
+                if (payload === "online") {
+                    isESPOnline = true;
+                    updateESPStatus("Online", "connected");
+                    if (cachedRestartSeconds > 0) startLocalCountdown(cachedRestartSeconds);
+                } else {
+                    isESPOnline = false;
+                    updateESPStatus("Offline", "disconnected");
+                    updateRelayVisualization("IDLE"); 
+                    stopLocalCountdown();
+                }
+            } 
+            else if (topic === topic_relay) {
+                if (payload === "STALLED") {
+                    triggerStallWarning();
+                } else {
+                    updateRelayVisualization(payload);
+                }
+            }
+            else if (topic === topic_restart) {
+                cachedRestartSeconds = parseInt(payload);
+                if (isESPOnline) {
+                    startLocalCountdown(cachedRestartSeconds);
+                } else {
+                    stopLocalCountdown();
+                }
             }
         }
 
-        function updateRelays(state) {
-            document.querySelectorAll('.relay-unit').forEach(el => el.classList.remove('active'));
-            if (state === "FORWARD") { document.getElementById('r1').classList.add('active'); document.getElementById('r2').classList.add('active'); }
-            else if (state === "REVERSE") { document.getElementById('r3').classList.add('active'); document.getElementById('r4').classList.add('active'); }
+        function triggerStallWarning() {
+            const badge = document.getElementById("espBadge");
+            const label = document.getElementById("espStatus");
+            const dot = document.getElementById("espDot");
+
+            badge.classList.add("badge-stalled");
+            label.innerText = "STALLED!";
+            label.style.color = "var(--danger)";
+            dot.className = "dot disconnected";
+            
+            const relays = ["r1", "r2", "r3", "r4"];
+            relays.forEach(id => {
+                const el = document.getElementById(id);
+                el.classList.remove("active");
+                el.classList.add("stalled");
+            });
         }
 
-        connect();
+        function updateUI(val) {
+            document.getElementById('targetValue').innerText = val + "%";
+        }
+
+        function sendTarget(val) {
+            if (client.isConnected()) {
+                let message = new Paho.MQTT.Message(val.toString());
+                message.destinationName = topic_target;
+                message.retained = true; 
+                client.send(message);
+
+                document.getElementById("espBadge").classList.remove("badge-stalled");
+                if (isESPOnline) updateESPStatus("Online", "connected");
+            }
+        }
+
+        function startLocalCountdown(seconds) {
+            remainingSeconds = seconds;
+            clearInterval(localCountdownInterval);
+            
+            if (isNaN(remainingSeconds) || remainingSeconds <= 0 || !isESPOnline) {
+                document.getElementById("rebootTimer").innerText = "--:--:--";
+                return;
+            }
+
+            renderTimeDisplay(remainingSeconds);
+
+            localCountdownInterval = setInterval(() => {
+                if (remainingSeconds > 0 && isESPOnline) {
+                    remainingSeconds--;
+                    renderTimeDisplay(remainingSeconds);
+                } else {
+                    stopLocalCountdown();
+                }
+            }, 1000);
+        }
+
+        function stopLocalCountdown() {
+            clearInterval(localCountdownInterval);
+            document.getElementById("rebootTimer").innerText = "--:--:--";
+        }
+
+        function renderTimeDisplay(totalSeconds) {
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+
+            const formatted = 
+                String(hours).padStart(2, '0') + ":" + 
+                String(minutes).padStart(2, '0') + ":" + 
+                String(seconds).padStart(2, '0');
+
+            document.getElementById("rebootTimer").innerText = formatted;
+        }
+
+        function updateRelayVisualization(state) {
+            document.getElementById("espBadge").classList.remove("badge-stalled");
+            if (isESPOnline && document.getElementById("espStatus").innerText !== "Online") {
+                updateESPStatus("Online", "connected");
+            }
+
+            const relays = ["r1", "r2", "r3", "r4"];
+            relays.forEach(id => {
+                const el = document.getElementById(id);
+                el.classList.remove("active");
+                el.classList.remove("stalled");
+            });
+
+            if (state === "FORWARD") {
+                document.getElementById("r1").classList.add("active");
+                document.getElementById("r2").classList.add("active");
+            } 
+            else if (state === "REVERSE") {
+                document.getElementById("r3").classList.add("active");
+                document.getElementById("r4").classList.add("active");
+            }
+        }
+
+        function updateWebStatus(text, state) {
+            const label = document.getElementById("webStatus");
+            const dot = document.getElementById("webDot");
+            label.innerText = text;
+            dot.className = "dot " + state;
+            
+            if (state === "connected") label.style.color = "var(--success)";
+            else if (state === "warning") label.style.color = "var(--warning)";
+            else label.style.color = "var(--danger)";
+        }
+
+        function updateESPStatus(text, state) {
+            if (document.getElementById("espBadge").classList.contains("badge-stalled") && text === "Online") {
+                return; 
+            }
+
+            const label = document.getElementById("espStatus");
+            const dot = document.getElementById("espDot");
+            label.innerText = text;
+            dot.className = "dot " + state;
+            
+            if (state === "connected") label.style.color = "var(--success)";
+            else label.style.color = "var(--danger)";
+        }
     </script>
 </body>
 </html>
