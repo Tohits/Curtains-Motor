@@ -61,7 +61,6 @@
             text-align: center;
         }
 
-        /* --- STATUS LABELS SYSTEM (THREE COLUMNS) --- */
         .status-container {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -108,7 +107,6 @@
             font-weight: 700;
         }
 
-        /* --- DISPLAY CARDS --- */
         .dashboard { 
             display: flex; 
             gap: 12px; 
@@ -142,7 +140,6 @@
         .target { color: var(--primary); text-shadow: 0 0 20px var(--primary-glow); }
         .current { color: var(--success); text-shadow: 0 0 20px var(--success-glow); }
 
-        /* --- REALTIME RELAY BOARD --- */
         .relay-panel {
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid rgba(255, 255, 255, 0.05);
@@ -207,7 +204,6 @@
             color: var(--success);
         }
 
-        /* --- SLIDER --- */
         .slider-section {
             width: 100%;
         }
@@ -329,14 +325,16 @@
         const topic_current = "tohits/current";
         const topic_status = "tohits/status";
         const topic_relay = "tohits/relay";
-        const topic_restart = "tohits/restart_in"; // Subscribing to remaining reboot duration
+        const topic_restart = "tohits/restart_in"; 
 
         const clientID = "web_" + Math.random().toString(16).substring(2, 10);
         const client = new Paho.MQTT.Client(mqtt_host, mqtt_port, clientID);
 
-        // Local running timer references
+        // Core Status State Checks
+        let isESPOnline = false;
         let localCountdownInterval = null;
         let remainingSeconds = 0;
+        let cachedRestartSeconds = 0; // Prevent initial subscription race condition
 
         client.onConnectionLost = onConnectionLost;
         client.onMessageArrived = onMessageArrived;
@@ -360,7 +358,7 @@
             client.subscribe(topic_status);
             client.subscribe(topic_relay);
             client.subscribe(topic_target); 
-            client.subscribe(topic_restart); // Register listener for restart seconds
+            client.subscribe(topic_restart); 
         }
 
         function onConnectFailure(e) {
@@ -371,6 +369,7 @@
         function onConnectionLost(responseObject) {
             updateWebStatus("Offline", "disconnected");
             updateESPStatus("Offline", "disconnected"); 
+            isESPOnline = false;
             stopLocalCountdown();
             setTimeout(connectMQTT, 5000);
         }
@@ -388,8 +387,14 @@
             }
             else if (topic === topic_status) {
                 if (payload === "online") {
+                    isESPOnline = true;
                     updateESPStatus("Online", "connected");
+                    // Sync countdown instantly if cached time is waiting
+                    if (cachedRestartSeconds > 0) {
+                        startLocalCountdown(cachedRestartSeconds);
+                    }
                 } else {
+                    isESPOnline = false;
                     updateESPStatus("Offline", "disconnected");
                     updateRelayVisualization("IDLE"); 
                     stopLocalCountdown();
@@ -399,7 +404,12 @@
                 updateRelayVisualization(payload);
             }
             else if (topic === topic_restart) {
-                startLocalCountdown(parseInt(payload));
+                cachedRestartSeconds = parseInt(payload);
+                if (isESPOnline) {
+                    startLocalCountdown(cachedRestartSeconds);
+                } else {
+                    stopLocalCountdown();
+                }
             }
         }
 
@@ -421,21 +431,19 @@
             remainingSeconds = seconds;
             clearInterval(localCountdownInterval);
             
-            if (isNaN(remainingSeconds) || remainingSeconds <= 0) {
-                document.getElementById("rebootTimer").innerText = "Rebooting...";
+            if (isNaN(remainingSeconds) || remainingSeconds <= 0 || !isESPOnline) {
+                document.getElementById("rebootTimer").innerText = "--:--:--";
                 return;
             }
 
             renderTimeDisplay(remainingSeconds);
 
-            // Ticks down dynamically every 1 second locally to prevent visual lag
             localCountdownInterval = setInterval(() => {
-                if (remainingSeconds > 0) {
+                if (remainingSeconds > 0 && isESPOnline) {
                     remainingSeconds--;
                     renderTimeDisplay(remainingSeconds);
                 } else {
-                    document.getElementById("rebootTimer").innerText = "Rebooting...";
-                    clearInterval(localCountdownInterval);
+                    stopLocalCountdown();
                 }
             }, 1000);
         }
