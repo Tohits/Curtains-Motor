@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Global Position Controller</title>
+    <title>Global Position & Relay Controller</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <style>
         :root {
@@ -17,6 +17,7 @@
             --success-glow: rgba(16, 185, 129, 0.35);
             --warning: #f59e0b;
             --danger: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.35);
         }
 
         * {
@@ -35,53 +36,59 @@
             background: var(--bg-gradient); 
             color: var(--text-main);
             padding: 20px;
-            overflow-x: hidden;
         }
 
         .container {
             width: 100%;
-            max-width: 460px;
+            max-width: 480px;
             background: rgba(10, 15, 26, 0.65);
             border: 1px solid rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(16px);
-            padding: 35px 25px;
+            padding: 30px 20px;
             border-radius: 24px;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
-        /* --- HEADER & STATUS BADGES --- */
+        /* --- HEADERS --- */
         h2 { 
-            font-size: 1.6rem;
+            font-size: 1.4rem;
             font-weight: 800;
             letter-spacing: -0.03em;
             text-transform: uppercase;
             background: linear-gradient(to right, #93c5fd, #3b82f6);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            margin-bottom: 8px;
+            margin-bottom: 20px;
+            text-align: center;
         }
 
-        .meta-container {
+        /* --- STATUS LABELS SYSTEM --- */
+        .status-container {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            gap: 10px;
             margin-bottom: 25px;
-            padding: 0 5px;
         }
 
-        #status { 
-            font-size: 0.75rem; 
+        .status-badge {
+            flex: 1;
+            font-size: 0.72rem;
             font-weight: 700;
             letter-spacing: 0.05em;
             text-transform: uppercase;
-            padding: 6px 12px;
-            border-radius: 100px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            display: inline-flex;
+            padding: 8px 10px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 6px;
-            transition: all 0.4s ease;
+            gap: 4px;
+        }
+
+        .status-badge span.label {
+            color: var(--text-muted);
+            font-size: 0.65rem;
         }
 
         .dot {
@@ -89,54 +96,30 @@
             height: 8px;
             border-radius: 50%;
             display: inline-block;
-            background-color: var(--warning);
-            box-shadow: 0 0 8px var(--warning);
         }
 
-        .dot.connected {
-            background-color: var(--success);
-            box-shadow: 0 0 8px var(--success);
-            animation: pulse 2s infinite;
-        }
+        .dot.connected { background-color: var(--success); box-shadow: 0 0 8px var(--success); }
+        .dot.warning { background-color: var(--warning); box-shadow: 0 0 8px var(--warning); }
+        .dot.disconnected { background-color: var(--danger); box-shadow: 0 0 8px var(--danger); }
 
-        .dot.disconnected {
-            background-color: var(--danger);
-            box-shadow: 0 0 8px var(--danger);
-        }
-
-        /* --- DASHBOARD CARDS --- */
+        /* --- DISPLAY CARDS --- */
         .dashboard { 
             display: flex; 
-            gap: 16px; 
-            margin-bottom: 30px; 
-            width: 100%;
+            gap: 12px; 
+            margin-bottom: 25px; 
         }
 
         .card { 
             background: var(--card-bg); 
-            padding: 20px 15px; 
-            border-radius: 18px; 
+            padding: 16px 12px; 
+            border-radius: 16px; 
             flex: 1;
             border: 1px solid var(--card-border);
-            position: relative;
-            overflow: hidden;
-            transition: transform 0.3s ease, border-color 0.3s ease;
+            text-align: center;
         }
-
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-        }
-
-        .card.target-card::before { background: var(--primary); }
-        .card.current-card::before { background: var(--success); }
 
         .card-title {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 0.08em;
             color: var(--text-muted);
@@ -144,66 +127,110 @@
         }
 
         .value { 
-            font-size: 3rem; 
+            font-size: 2.4rem; 
             font-weight: 900; 
             margin-top: 5px; 
             font-variant-numeric: tabular-nums;
-            letter-spacing: -0.04em;
         }
 
         .target { color: var(--primary); text-shadow: 0 0 20px var(--primary-glow); }
         .current { color: var(--success); text-shadow: 0 0 20px var(--success-glow); }
 
-        /* --- DYNAMIC MOTOR STATE BADGE --- */
-        #motorState {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: var(--text-muted);
+        /* --- REALTIME RELAY BOARD --- */
+        .relay-panel {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 18px;
+            padding: 15px;
             margin-bottom: 25px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 5px;
+        }
+
+        .relay-panel-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .relay-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .relay-unit {
+            background: #101726;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 10px 5px;
+            text-align: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .relay-unit.active {
+            background: rgba(16, 185, 129, 0.08);
+            border-color: var(--success);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
+        }
+
+        .relay-unit .led {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #334155;
+            margin: 0 auto 6px auto;
+            transition: all 0.3s;
+        }
+
+        .relay-unit.active .led {
+            background: var(--success);
+            box-shadow: 0 0 10px var(--success);
+        }
+
+        .relay-unit .name {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .relay-unit.active .name {
+            color: var(--success);
         }
 
         /* --- SLIDER STYLING --- */
         .slider-section {
             width: 100%;
-            text-align: left;
-            padding: 0 5px;
         }
 
         .slider-label {
             color: var(--text-muted);
-            font-size: 0.85rem;
-            font-weight: 600;
+            font-size: 0.75rem;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             display: block;
-        }
-
-        .slider-wrapper {
-            position: relative;
-            width: 100%;
         }
 
         input[type=range] { 
             -webkit-appearance: none;
             width: 100%; 
-            height: 10px;
+            height: 8px;
             border-radius: 100px;
             background: #1e293b;
             outline: none;
-            margin: 20px 0;
-            transition: background 0.3s;
+            margin: 15px 0;
         }
 
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 24px;
-            height: 24px;
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
             background: #ffffff;
             border: 4px solid var(--primary);
@@ -213,54 +240,70 @@
         }
 
         input[type=range]::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
+            transform: scale(1.15);
             background: var(--primary);
             border-color: #ffffff;
-        }
-
-        input[type=range]::-webkit-slider-thumb:active {
-            transform: scale(0.95);
-        }
-
-        /* --- ANIMATIONS --- */
-        @keyframes pulse {
-            0% { opacity: 0.4; }
-            50% { opacity: 1; }
-            100% { opacity: 0.4; }
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <div class="meta-container">
-            <h2>Position Command</h2>
-            <div id="status">
-                <span class="dot" id="statusDot"></span>
-                <span id="statusText">Offline</span>
+        <h2>Position Command Center</h2>
+        
+        <div class="status-container">
+            <div class="status-badge">
+                <span class="label">Cloud MQTT</span>
+                <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+                    <span class="dot disconnected" id="webDot"></span>
+                    <span id="webStatus" style="color: var(--danger);">Offline</span>
+                </div>
+            </div>
+            <div class="status-badge">
+                <span class="label">ESP Hardware</span>
+                <div style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+                    <span class="dot disconnected" id="espDot"></span>
+                    <span id="espStatus" style="color: var(--danger);">Offline</span>
+                </div>
             </div>
         </div>
         
         <div class="dashboard">
-            <div class="card target-card">
-                <div class="card-title">Target Position</div>
+            <div class="card">
+                <div class="card-title">Target Pos</div>
                 <div id="targetValue" class="value target">0%</div>
             </div>
-            <div class="card current-card">
+            <div class="card">
                 <div class="card-title">Current Read</div>
                 <div id="currentValue" class="value current">0%</div>
             </div>
         </div>
 
-        <div id="motorState">
-            <span>●</span> System Idle
+        <div class="relay-panel">
+            <div class="relay-panel-title">Active Relay Monitoring</div>
+            <div class="relay-grid">
+                <div class="relay-unit" id="r1">
+                    <div class="led"></div>
+                    <div class="name">R1 FWD</div>
+                </div>
+                <div class="relay-unit" id="r2">
+                    <div class="led"></div>
+                    <div class="name">R2 FWD</div>
+                </div>
+                <div class="relay-unit" id="r3">
+                    <div class="led"></div>
+                    <div class="name">R3 REV</div>
+                </div>
+                <div class="relay-unit" id="r4">
+                    <div class="led"></div>
+                    <div class="name">R4 REV</div>
+                </div>
+            </div>
         </div>
 
         <div class="slider-section">
-            <label class="slider-label" for="pulseSlider">Command Output</label>
-            <div class="slider-wrapper">
-                <input type="range" min="0" max="100" value="0" id="pulseSlider" onchange="sendTarget(this.value)" oninput="updateUI(this.value)">
-            </div>
+            <label class="slider-label" for="pulseSlider">Command Output Slider</label>
+            <input type="range" min="0" max="100" value="0" id="pulseSlider" onchange="sendTarget(this.value)" oninput="updateUI(this.value)">
         </div>
     </div>
 
@@ -275,12 +318,11 @@
         
         const topic_target = "tohits/target";
         const topic_current = "tohits/current";
+        const topic_status = "tohits/status";
+        const topic_relay = "tohits/relay";
 
         const clientID = "web_" + Math.random().toString(16).substring(2, 10);
         const client = new Paho.MQTT.Client(mqtt_host, mqtt_port, clientID);
-
-        let targetVal = 0;
-        let currentVal = 0;
 
         client.onConnectionLost = onConnectionLost;
         client.onMessageArrived = onMessageArrived;
@@ -288,7 +330,7 @@
         connectMQTT();
 
         function connectMQTT() {
-            updateStatus("Connecting...", "connecting");
+            updateWebStatus("Connecting...", "warning");
             client.connect({
                 userName: mqtt_user,
                 password: mqtt_pass,
@@ -299,41 +341,51 @@
         }
 
         // ==========================================
-        // MQTT STATUS HANDLERS
+        // CONNECTION EVENTS
         // ==========================================
         function onConnect() {
-            updateStatus("Connected", "connected");
+            updateWebStatus("Connected", "connected");
             client.subscribe(topic_current);
+            client.subscribe(topic_status);
+            client.subscribe(topic_relay);
         }
 
         function onConnectFailure(e) {
-            updateStatus("Retry Failure", "disconnected");
+            updateWebStatus("Failed", "disconnected");
             setTimeout(connectMQTT, 5000);
         }
 
         function onConnectionLost(responseObject) {
-            if (responseObject.errorCode !== 0) {
-                updateStatus("Disconnected", "disconnected");
-                setTimeout(connectMQTT, 5000);
-            }
+            updateWebStatus("Offline", "disconnected");
+            updateESPStatus("Offline", "disconnected"); // If web lost connection, ESP status is unknown
+            setTimeout(connectMQTT, 5000);
         }
 
-        // Handles live position changes & updates state labels dynamically
+        // ==========================================
+        // DATA PROCESSING & RELAY FEEDBACK
+        // ==========================================
         function onMessageArrived(message) {
-            if (message.destinationName === topic_current) {
-                currentVal = parseInt(message.payloadString) || 0;
-                document.getElementById('currentValue').innerText = currentVal + "%";
-                updateSystemState();
+            const topic = message.destinationName;
+            const payload = message.payloadString;
+
+            if (topic === topic_current) {
+                document.getElementById('currentValue').innerText = payload + "%";
+            } 
+            else if (topic === topic_status) {
+                if (payload === "online") {
+                    updateESPStatus("Online", "connected");
+                } else {
+                    updateESPStatus("Offline", "disconnected");
+                    updateRelayVisualization("IDLE"); // Force grey out of relays if ESP goes offline
+                }
+            } 
+            else if (topic === topic_relay) {
+                updateRelayVisualization(payload);
             }
         }
 
-        // ==========================================
-        // UI & HARDWARE CONTROLS
-        // ==========================================
         function updateUI(val) {
-            targetVal = parseInt(val);
-            document.getElementById('targetValue').innerText = targetVal + "%";
-            updateSystemState();
+            document.getElementById('targetValue').innerText = val + "%";
         }
 
         function sendTarget(val) {
@@ -344,35 +396,55 @@
             }
         }
 
-        // Updates state line: tells you if the motor is actively correcting or locked
-        function updateSystemState() {
-            const stateEl = document.getElementById("motorState");
-            if (targetVal === currentVal) {
-                stateEl.innerHTML = `<span style="color: var(--success)">●</span> Position Locked`;
-                stateEl.style.color = "var(--text-main)";
-            } else {
-                stateEl.innerHTML = `<span style="color: var(--warning); animation: pulse 1s infinite">●</span> Motor Driving...`;
-                stateEl.style.color = "var(--warning)";
+        // ==========================================
+        // UI VISUALIZATION UPDATES
+        // ==========================================
+        
+        // Animates and updates active relays on dashboard
+        function updateRelayVisualization(state) {
+            const r1 = document.getElementById("r1");
+            const r2 = document.getElementById("r2");
+            const r3 = document.getElementById("r3");
+            const r4 = document.getElementById("r4");
+
+            // Clear active styles
+            r1.classList.remove("active");
+            r2.classList.remove("active");
+            r3.classList.remove("active");
+            r4.classList.remove("active");
+
+            if (state === "FORWARD") {
+                r1.classList.add("active");
+                r2.classList.add("active");
+            } 
+            else if (state === "REVERSE") {
+                r3.classList.add("active");
+                r4.classList.add("active");
             }
+            // "IDLE" leaves everything cleared
         }
 
-        // Changes the glowing UI Status Dot and Badge colors on the fly
-        function updateStatus(text, state) {
-            const statusText = document.getElementById("statusText");
-            const statusDot = document.getElementById("statusDot");
+        // Updates Dashboard Connection Status
+        function updateWebStatus(text, state) {
+            const label = document.getElementById("webStatus");
+            const dot = document.getElementById("webDot");
+            label.innerText = text;
+            dot.className = "dot " + state;
             
-            statusText.innerText = text;
-            statusDot.className = "dot"; // Reset classes
+            if (state === "connected") label.style.color = "var(--success)";
+            else if (state === "warning") label.style.color = "var(--warning)";
+            else label.style.color = "var(--danger)";
+        }
+
+        // Updates ESP Hardware LWT Status
+        function updateESPStatus(text, state) {
+            const label = document.getElementById("espStatus");
+            const dot = document.getElementById("espDot");
+            label.innerText = text;
+            dot.className = "dot " + state;
             
-            if (state === "connected") {
-                statusDot.classList.add("connected");
-                statusText.style.color = "var(--success)";
-            } else if (state === "connecting") {
-                statusText.style.color = "var(--warning)";
-            } else {
-                statusDot.classList.add("disconnected");
-                statusText.style.color = "var(--danger)";
-            }
+            if (state === "connected") label.style.color = "var(--success)";
+            else label.style.color = "var(--danger)";
         }
     </script>
 </body>
