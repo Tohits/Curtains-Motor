@@ -20,232 +20,74 @@
             --danger-glow: rgba(239, 68, 68, 0.35);
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
 
         body { 
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background: var(--bg-gradient); 
-            color: var(--text-main);
-            padding: 20px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; background: var(--bg-gradient); color: var(--text-main); padding: 20px;
         }
 
         .container {
-            width: 100%;
-            max-width: 500px;
-            background: rgba(10, 15, 26, 0.65);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(16px);
-            padding: 30px 20px;
-            border-radius: 24px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            width: 100%; max-width: 500px; background: rgba(10, 15, 26, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.05); backdrop-filter: blur(16px);
+            padding: 30px 20px; border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
         h2 { 
-            font-size: 1.3rem;
-            font-weight: 800;
-            letter-spacing: -0.03em;
-            text-transform: uppercase;
-            background: linear-gradient(to right, #93c5fd, #3b82f6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 20px;
-            text-align: center;
+            font-size: 1.3rem; font-weight: 800; letter-spacing: -0.03em; text-transform: uppercase;
+            background: linear-gradient(to right, #93c5fd, #3b82f6); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; margin-bottom: 20px; text-align: center;
         }
 
-        .status-container {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-            margin-bottom: 25px;
-        }
+        .status-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 25px; }
 
         .status-badge {
-            font-size: 0.68rem;
-            font-weight: 700;
-            letter-spacing: 0.03em;
-            text-transform: uppercase;
-            padding: 10px 6px;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            text-align: center;
+            font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+            padding: 10px 6px; border-radius: 12px; background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06); display: flex; flex-direction: column;
+            align-items: center; gap: 4px; text-align: center; transition: all 0.3s;
         }
 
-        .status-badge span.label {
-            color: var(--text-muted);
-            font-size: 0.6rem;
-        }
+        .status-badge span.label { color: var(--text-muted); font-size: 0.6rem; }
 
-        .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
+        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
         .dot.connected { background-color: var(--success); box-shadow: 0 0 8px var(--success); }
         .dot.warning { background-color: var(--warning); box-shadow: 0 0 8px var(--warning); }
         .dot.disconnected { background-color: var(--danger); box-shadow: 0 0 8px var(--danger); }
+        
+        /* New Stalled Animation */
+        @keyframes flashRed { 0% { box-shadow: 0 0 15px var(--danger); background-color: rgba(239, 68, 68, 0.2); } 50% { box-shadow: 0 0 5px transparent; background-color: transparent; } 100% { box-shadow: 0 0 15px var(--danger); background-color: rgba(239, 68, 68, 0.2); } }
+        .badge-stalled { animation: flashRed 1s infinite; border-color: var(--danger) !important; }
 
-        .reboot-val {
-            color: #38bdf8;
-            font-family: monospace;
-            font-size: 0.75rem;
-            font-weight: 700;
-        }
+        .reboot-val { color: #38bdf8; font-family: monospace; font-size: 0.75rem; font-weight: 700; }
 
-        .dashboard { 
-            display: flex; 
-            gap: 12px; 
-            margin-bottom: 25px; 
-        }
-
-        .card { 
-            background: var(--card-bg); 
-            padding: 16px 12px; 
-            border-radius: 16px; 
-            flex: 1;
-            border: 1px solid var(--card-border);
-            text-align: center;
-        }
-
-        .card-title {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--text-muted);
-            font-weight: 700;
-        }
-
-        .value { 
-            font-size: 2.4rem; 
-            font-weight: 900; 
-            margin-top: 5px; 
-            font-variant-numeric: tabular-nums;
-        }
-
+        .dashboard { display: flex; gap: 12px; margin-bottom: 25px; }
+        .card { background: var(--card-bg); padding: 16px 12px; border-radius: 16px; flex: 1; border: 1px solid var(--card-border); text-align: center; }
+        .card-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; }
+        .value { font-size: 2.4rem; font-weight: 900; margin-top: 5px; font-variant-numeric: tabular-nums; }
         .target { color: var(--primary); text-shadow: 0 0 20px var(--primary-glow); }
         .current { color: var(--success); text-shadow: 0 0 20px var(--success-glow); }
 
-        .relay-panel {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 18px;
-            padding: 15px;
-            margin-bottom: 25px;
-        }
+        .relay-panel { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 18px; padding: 15px; margin-bottom: 25px; }
+        .relay-panel-title { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 12px; text-align: center; }
+        .relay-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .relay-unit { background: #101726; border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 12px; padding: 10px 5px; text-align: center; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .relay-unit.active { background: rgba(16, 185, 129, 0.08); border-color: var(--success); box-shadow: 0 0 12px rgba(16, 185, 129, 0.15); }
+        .relay-unit.stalled { background: rgba(239, 68, 68, 0.08); border-color: var(--danger); box-shadow: 0 0 12px rgba(239, 68, 68, 0.15); }
+        
+        .relay-unit .led { width: 10px; height: 10px; border-radius: 50%; background: #334155; margin: 0 auto 6px auto; transition: all 0.3s; }
+        .relay-unit.active .led { background: var(--success); box-shadow: 0 0 10px var(--success); }
+        .relay-unit.stalled .led { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
+        
+        .relay-unit .name { font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
+        .relay-unit.active .name { color: var(--success); }
+        .relay-unit.stalled .name { color: var(--danger); }
 
-        .relay-panel-title {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            font-weight: 700;
-            letter-spacing: 0.05em;
-            margin-bottom: 12px;
-            text-align: center;
-        }
-
-        .relay-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-        }
-
-        .relay-unit {
-            background: #101726;
-            border: 1px solid rgba(255, 255, 255, 0.03);
-            border-radius: 12px;
-            padding: 10px 5px;
-            text-align: center;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .relay-unit.active {
-            background: rgba(16, 185, 129, 0.08);
-            border-color: var(--success);
-            box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
-        }
-
-        .relay-unit .led {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #334155;
-            margin: 0 auto 6px auto;
-            transition: all 0.3s;
-        }
-
-        .relay-unit.active .led {
-            background: var(--success);
-            box-shadow: 0 0 10px var(--success);
-        }
-
-        .relay-unit .name {
-            font-size: 0.65rem;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-        }
-
-        .relay-unit.active .name {
-            color: var(--success);
-        }
-
-        .slider-section {
-            width: 100%;
-        }
-
-        .slider-label {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 8px;
-            display: block;
-        }
-
-        input[type=range] { 
-            -webkit-appearance: none;
-            width: 100%; 
-            height: 8px;
-            border-radius: 100px;
-            background: #1e293b;
-            outline: none;
-            margin: 15px 0;
-        }
-
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            background: #ffffff;
-            border: 4px solid var(--primary);
-            cursor: pointer;
-            box-shadow: 0 0 15px var(--primary-glow);
-            transition: transform 0.15s ease, background-color 0.2s;
-        }
-
-        input[type=range]::-webkit-slider-thumb:hover {
-            transform: scale(1.15);
-            background: var(--primary);
-            border-color: #ffffff;
-        }
+        .slider-section { width: 100%; }
+        .slider-label { color: var(--text-muted); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: block; }
+        input[type=range] { -webkit-appearance: none; width: 100%; height: 8px; border-radius: 100px; background: #1e293b; outline: none; margin: 15px 0; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #ffffff; border: 4px solid var(--primary); cursor: pointer; box-shadow: 0 0 15px var(--primary-glow); transition: transform 0.15s ease, background-color 0.2s; }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); background: var(--primary); border-color: #ffffff; }
     </style>
 </head>
 <body>
@@ -261,7 +103,7 @@
                     <span id="webStatus" style="color: var(--danger);">Offline</span>
                 </div>
             </div>
-            <div class="status-badge">
+            <div class="status-badge" id="espBadge">
                 <span class="label">ESP Hardware</span>
                 <div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;">
                     <span class="dot disconnected" id="espDot"></span>
@@ -330,11 +172,10 @@
         const clientID = "web_" + Math.random().toString(16).substring(2, 10);
         const client = new Paho.MQTT.Client(mqtt_host, mqtt_port, clientID);
 
-        // Core Status State Checks
         let isESPOnline = false;
         let localCountdownInterval = null;
         let remainingSeconds = 0;
-        let cachedRestartSeconds = 0; // Prevent initial subscription race condition
+        let cachedRestartSeconds = 0; 
 
         client.onConnectionLost = onConnectionLost;
         client.onMessageArrived = onMessageArrived;
@@ -389,10 +230,7 @@
                 if (payload === "online") {
                     isESPOnline = true;
                     updateESPStatus("Online", "connected");
-                    // Sync countdown instantly if cached time is waiting
-                    if (cachedRestartSeconds > 0) {
-                        startLocalCountdown(cachedRestartSeconds);
-                    }
+                    if (cachedRestartSeconds > 0) startLocalCountdown(cachedRestartSeconds);
                 } else {
                     isESPOnline = false;
                     updateESPStatus("Offline", "disconnected");
@@ -401,7 +239,11 @@
                 }
             } 
             else if (topic === topic_relay) {
-                updateRelayVisualization(payload);
+                if (payload === "STALLED") {
+                    triggerStallWarning();
+                } else {
+                    updateRelayVisualization(payload);
+                }
             }
             else if (topic === topic_restart) {
                 cachedRestartSeconds = parseInt(payload);
@@ -411,6 +253,26 @@
                     stopLocalCountdown();
                 }
             }
+        }
+
+        function triggerStallWarning() {
+            // Visual Alarm for Motor Stall
+            const badge = document.getElementById("espBadge");
+            const label = document.getElementById("espStatus");
+            const dot = document.getElementById("espDot");
+
+            badge.classList.add("badge-stalled");
+            label.innerText = "STALLED!";
+            label.style.color = "var(--danger)";
+            dot.className = "dot disconnected";
+            
+            // Turn all relay icons red to signify error
+            const relays = ["r1", "r2", "r3", "r4"];
+            relays.forEach(id => {
+                const el = document.getElementById(id);
+                el.classList.remove("active");
+                el.classList.add("stalled");
+            });
         }
 
         function updateUI(val) {
@@ -423,10 +285,13 @@
                 message.destinationName = topic_target;
                 message.retained = true; 
                 client.send(message);
+
+                // Clear any stall warnings locally immediately when a new command is sent
+                document.getElementById("espBadge").classList.remove("badge-stalled");
+                if (isESPOnline) updateESPStatus("Online", "connected");
             }
         }
 
-        // --- LOCAL RESTART COUNTDOWN CONTROLLER ---
         function startLocalCountdown(seconds) {
             remainingSeconds = seconds;
             clearInterval(localCountdownInterval);
@@ -467,23 +332,26 @@
         }
 
         function updateRelayVisualization(state) {
-            const r1 = document.getElementById("r1");
-            const r2 = document.getElementById("r2");
-            const r3 = document.getElementById("r3");
-            const r4 = document.getElementById("r4");
+            // Remove stalled badge if active
+            document.getElementById("espBadge").classList.remove("badge-stalled");
+            if (isESPOnline && document.getElementById("espStatus").innerText !== "Online") {
+                updateESPStatus("Online", "connected");
+            }
 
-            r1.classList.remove("active");
-            r2.classList.remove("active");
-            r3.classList.remove("active");
-            r4.classList.remove("active");
+            const relays = ["r1", "r2", "r3", "r4"];
+            relays.forEach(id => {
+                const el = document.getElementById(id);
+                el.classList.remove("active");
+                el.classList.remove("stalled");
+            });
 
             if (state === "FORWARD") {
-                r1.classList.add("active");
-                r2.classList.add("active");
+                document.getElementById("r1").classList.add("active");
+                document.getElementById("r2").classList.add("active");
             } 
             else if (state === "REVERSE") {
-                r3.classList.add("active");
-                r4.classList.add("active");
+                document.getElementById("r3").classList.add("active");
+                document.getElementById("r4").classList.add("active");
             }
         }
 
@@ -499,6 +367,10 @@
         }
 
         function updateESPStatus(text, state) {
+            if (document.getElementById("espBadge").classList.contains("badge-stalled") && text === "Online") {
+                return; // Don't overwrite Stalled text with Online if currently stalled
+            }
+
             const label = document.getElementById("espStatus");
             const dot = document.getElementById("espDot");
             label.innerText = text;
