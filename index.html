@@ -82,11 +82,20 @@
         .relay-unit.active .name { color: var(--success); }
         .relay-unit.stalled .name { color: var(--danger); }
 
-        .slider-section { width: 100%; }
+        .slider-section { width: 100%; margin-bottom: 20px; }
         .slider-label { color: var(--text-muted); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: block; }
         input[type=range] { -webkit-appearance: none; width: 100%; height: 8px; border-radius: 100px; background: #1e293b; outline: none; margin: 15px 0; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #ffffff; border: 4px solid var(--primary); cursor: pointer; box-shadow: 0 0 15px var(--primary-glow); transition: transform 0.15s ease, background-color 0.2s; }
         input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); background: var(--primary); border-color: #ffffff; }
+
+        /* New Reboot Button Style */
+        .reboot-btn { 
+            width: 100%; padding: 14px; border-radius: 12px; border: none;
+            background: rgba(239, 68, 68, 0.1); color: var(--danger); font-weight: 700;
+            text-transform: uppercase; cursor: pointer; border: 1px solid var(--danger);
+            transition: all 0.2s; letter-spacing: 0.05em;
+        }
+        .reboot-btn:hover { background: var(--danger); color: white; }
     </style>
 </head>
 <body>
@@ -154,11 +163,13 @@
             <label class="slider-label" for="pulseSlider">Command Output Slider</label>
             <input type="range" min="0" max="100" value="0" id="pulseSlider" onchange="sendTarget(this.value)" oninput="updateUI(this.value)">
         </div>
+
+        <button class="reboot-btn" onclick="sendReboot()">Reboot System</button>
     </div>
 
     <script>
         const mqtt_host = "93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud";
-        const mqtt_port = 8884; // WebSocket port
+        const mqtt_port = 8884;
         const mqtt_user = "tohits";
         const mqtt_pass = "toh123@TOH";
         
@@ -166,7 +177,8 @@
         const topic_current = "tohits/current";
         const topic_status = "tohits/status";
         const topic_relay = "tohits/relay";
-        const topic_restart = "tohits/restart_in"; 
+        const topic_restart = "tohits/restart_in";
+        const topic_command = "tohits/command"; // NEW COMMAND TOPIC
 
         const clientID = "web_" + Math.random().toString(16).substring(2, 10);
         const client = new Paho.MQTT.Client(mqtt_host, mqtt_port, clientID);
@@ -250,6 +262,17 @@
                     startLocalCountdown(cachedRestartSeconds);
                 } else {
                     stopLocalCountdown();
+                }
+            }
+        }
+
+        // NEW REBOOT FUNCTION
+        function sendReboot() {
+            if (confirm("Are you sure you want to reboot the ESP system?")) {
+                if (client.isConnected()) {
+                    let message = new Paho.MQTT.Message("REBOOT");
+                    message.destinationName = topic_command;
+                    client.send(message);
                 }
             }
         }
