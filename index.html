@@ -55,7 +55,6 @@
         .dot.warning { background-color: var(--warning); box-shadow: 0 0 8px var(--warning); }
         .dot.disconnected { background-color: var(--danger); box-shadow: 0 0 8px var(--danger); }
         
-        /* New Stalled Animation */
         @keyframes flashRed { 0% { box-shadow: 0 0 15px var(--danger); background-color: rgba(239, 68, 68, 0.2); } 50% { box-shadow: 0 0 5px transparent; background-color: transparent; } 100% { box-shadow: 0 0 15px var(--danger); background-color: rgba(239, 68, 68, 0.2); } }
         .badge-stalled { animation: flashRed 1s infinite; border-color: var(--danger) !important; }
 
@@ -159,7 +158,7 @@
 
     <script>
         const mqtt_host = "93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud";
-        const mqtt_port = 8884; 
+        const mqtt_port = 8884; // WebSocket port
         const mqtt_user = "tohits";
         const mqtt_pass = "toh123@TOH";
         
@@ -256,7 +255,6 @@
         }
 
         function triggerStallWarning() {
-            // Visual Alarm for Motor Stall
             const badge = document.getElementById("espBadge");
             const label = document.getElementById("espStatus");
             const dot = document.getElementById("espDot");
@@ -266,7 +264,6 @@
             label.style.color = "var(--danger)";
             dot.className = "dot disconnected";
             
-            // Turn all relay icons red to signify error
             const relays = ["r1", "r2", "r3", "r4"];
             relays.forEach(id => {
                 const el = document.getElementById(id);
@@ -286,7 +283,6 @@
                 message.retained = true; 
                 client.send(message);
 
-                // Clear any stall warnings locally immediately when a new command is sent
                 document.getElementById("espBadge").classList.remove("badge-stalled");
                 if (isESPOnline) updateESPStatus("Online", "connected");
             }
@@ -332,7 +328,6 @@
         }
 
         function updateRelayVisualization(state) {
-            // Remove stalled badge if active
             document.getElementById("espBadge").classList.remove("badge-stalled");
             if (isESPOnline && document.getElementById("espStatus").innerText !== "Online") {
                 updateESPStatus("Online", "connected");
@@ -368,7 +363,7 @@
 
         function updateESPStatus(text, state) {
             if (document.getElementById("espBadge").classList.contains("badge-stalled") && text === "Online") {
-                return; // Don't overwrite Stalled text with Online if currently stalled
+                return; 
             }
 
             const label = document.getElementById("espStatus");
