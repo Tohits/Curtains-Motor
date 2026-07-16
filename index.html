@@ -3,7 +3,7 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Global Position & Relay Controller</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js" defer></script>
     <style>
         :root {
             --bg-gradient: radial-gradient(circle at 50% 50%, #0d121f 0%, #05070a 100%);
@@ -167,33 +167,32 @@
     </div>
 
     <script>
+        // 1. VARIABLE DECLARATIONS
         const mqtt_host = "93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud";
         const mqtt_port = 8884;
         const mqtt_user = "tohits";
         const mqtt_pass = "toh123@TOH";
-        
         const topic_target = "tohits/target";
         const topic_current = "tohits/current";
         const topic_status = "tohits/status";
         const topic_relay = "tohits/relay";
         const topic_restart = "tohits/restart_in";
         const topic_command = "tohits/command";
-
         const clientID = "web_" + Math.random().toString(16).substring(2, 10);
         
-        // FIX 2: Added "/mqtt" to the path
+        // Define client here so it's initialized before functions are called
         const client = new Paho.MQTT.Client(mqtt_host, mqtt_port, "/mqtt", clientID);
 
         let isESPOnline = false;
         let localCountdownInterval = null;
         let remainingSeconds = 0;
-        let cachedRestartSeconds = 0; 
+        let cachedRestartSeconds = 0;
 
+        // 2. CONFIGURATION
         client.onConnectionLost = onConnectionLost;
         client.onMessageArrived = onMessageArrived;
 
-        connectMQTT();
-
+        // 3. FUNCTIONS
         function connectMQTT() {
             updateWebStatus("Connecting...", "warning");
             client.connect({
@@ -397,6 +396,9 @@
             if (state === "connected") label.style.color = "var(--success)";
             else label.style.color = "var(--danger)";
         }
+
+        // 4. START IT UP
+        connectMQTT();
     </script>
 </body>
 </html>
