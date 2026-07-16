@@ -3,7 +3,7 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Global Position & Relay Controller</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
     <style>
         :root {
             --bg-gradient: radial-gradient(circle at 50% 50%, #0d121f 0%, #05070a 100%);
@@ -88,7 +88,6 @@
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #ffffff; border: 4px solid var(--primary); cursor: pointer; box-shadow: 0 0 15px var(--primary-glow); transition: transform 0.15s ease, background-color 0.2s; }
         input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); background: var(--primary); border-color: #ffffff; }
 
-        /* New Reboot Button Style */
         .reboot-btn { 
             width: 100%; padding: 14px; border-radius: 12px; border: none;
             background: rgba(239, 68, 68, 0.1); color: var(--danger); font-weight: 700;
@@ -178,10 +177,12 @@
         const topic_status = "tohits/status";
         const topic_relay = "tohits/relay";
         const topic_restart = "tohits/restart_in";
-        const topic_command = "tohits/command"; // NEW COMMAND TOPIC
+        const topic_command = "tohits/command";
 
         const clientID = "web_" + Math.random().toString(16).substring(2, 10);
-        const client = new Paho.MQTT.Client(mqtt_host, mqtt_port, clientID);
+        
+        // FIX 2: Added "/mqtt" to the path
+        const client = new Paho.MQTT.Client(mqtt_host, mqtt_port, "/mqtt", clientID);
 
         let isESPOnline = false;
         let localCountdownInterval = null;
@@ -266,7 +267,6 @@
             }
         }
 
-        // NEW REBOOT FUNCTION
         function sendReboot() {
             if (confirm("Are you sure you want to reboot the ESP system?")) {
                 if (client.isConnected()) {
