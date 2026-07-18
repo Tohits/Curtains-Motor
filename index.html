@@ -7,36 +7,68 @@
     <style>
         body { font-family: sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
         .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 350px; text-align: center; }
+        .status-bar { display: flex; justify-content: space-around; margin-bottom: 20px; font-size: 0.9em; }
+        .indicator { padding: 5px 10px; border-radius: 5px; font-weight: bold; }
+        .online { background: #d4edda; color: #155724; }
+        .offline { background: #f8d7da; color: #721c24; }
         .slider { width: 100%; margin: 20px 0; }
     </style>
 </head>
 <body>
 
 <div class="card">
+    <div class="status-bar">
+        <div>MQTT: <span id="mqttStatus" class="indicator offline">Offline</span></div>
+        <div>ESP: <span id="espStatus" class="indicator offline">Offline</span></div>
+    </div>
+    
     <h2>Pulse Dashboard</h2>
-    <h3 id="statusText">Connecting...</h3>
     <p>Current Count: <b id="currentPulse">0</b></p>
     <input type="range" class="slider" id="pulseSlider" min="0" max="100" onchange="sendTarget(this.value)">
 </div>
 
 <script>
     const client = new Paho.MQTT.Client("93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud", 8884, "web_client");
+    let lastMessageTime = Date.now();
 
+    // MQTT Connection Logic
     client.connect({
         userName: "tohits",
         password: "toh123@TOH",
         useSSL: true,
         onSuccess: () => {
-            document.getElementById("statusText").innerText = "Connected";
+            document.getElementById("mqttStatus").innerText = "Online";
+            document.getElementById("mqttStatus").className = "indicator online";
             client.subscribe("pulse/status");
+        },
+        onFailure: () => {
+            document.getElementById("mqttStatus").innerText = "Offline";
+            document.getElementById("mqttStatus").className = "indicator offline";
         }
     });
 
+    client.onConnectionLost = () => {
+        document.getElementById("mqttStatus").innerText = "Offline";
+        document.getElementById("mqttStatus").className = "indicator offline";
+    };
+
+    // Receive Data from ESP
     client.onMessageArrived = (message) => {
+        lastMessageTime = Date.now(); // Reset Watchdog
+        document.getElementById("espStatus").innerText = "Online";
+        document.getElementById("espStatus").className = "indicator online";
+
         const data = message.payloadString.split(",");
         document.getElementById("currentPulse").innerText = data[0];
-        document.getElementById("statusText").innerText = data[1] === "1" ? "Target Met" : "Moving...";
     };
+
+    // Watchdog Timer: Check if ESP is still sending data
+    setInterval(() => {
+        if (Date.now() - lastMessageTime > 3000) {
+            document.getElementById("espStatus").innerText = "Offline";
+            document.getElementById("espStatus").className = "indicator offline";
+        }
+    }, 1000);
 
     function sendTarget(val) {
         let msg = new Paho.MQTT.Message(val);
