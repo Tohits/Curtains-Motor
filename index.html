@@ -1,163 +1,47 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Global Position & Relay Controller</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
+    <title>MQTT Pulse Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <style>
-        /* ... Keep your existing CSS exactly as is ... */
-        :root { --bg-gradient: radial-gradient(circle at 50% 50%, #0d121f 0%, #05070a 100%); --card-bg: rgba(21, 28, 45, 0.7); --card-border: rgba(59, 130, 246, 0.15); --text-main: #f1f5f9; --text-muted: #64748b; --primary: #3b82f6; --primary-glow: rgba(59, 130, 246, 0.35); --success: #10b981; --success-glow: rgba(16, 185, 129, 0.35); --warning: #f59e0b; --danger: #ef4444; --danger-glow: rgba(239, 68, 68, 0.35); }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-        body { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg-gradient); color: var(--text-main); padding: 20px; }
-        .container { width: 100%; max-width: 500px; background: rgba(10, 15, 26, 0.65); border: 1px solid rgba(255, 255, 255, 0.05); backdrop-filter: blur(16px); padding: 30px 20px; border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
-        h2 { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.03em; text-transform: uppercase; background: linear-gradient(to right, #93c5fd, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 20px; text-align: center; }
-        .status-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 25px; }
-        .status-badge { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; padding: 10px 6px; border-radius: 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
-        .status-badge span.label { color: var(--text-muted); font-size: 0.6rem; }
-        .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-        .dot.connected { background-color: var(--success); box-shadow: 0 0 8px var(--success); }
-        .dot.warning { background-color: var(--warning); box-shadow: 0 0 8px var(--warning); }
-        .dot.disconnected { background-color: var(--danger); box-shadow: 0 0 8px var(--danger); }
-        .badge-stalled { animation: flashRed 1s infinite; border-color: var(--danger) !important; }
-        @keyframes flashRed { 0% { box-shadow: 0 0 15px var(--danger); background-color: rgba(239, 68, 68, 0.2); } 50% { box-shadow: 0 0 5px transparent; background-color: transparent; } 100% { box-shadow: 0 0 15px var(--danger); background-color: rgba(239, 68, 68, 0.2); } }
-        .reboot-val { color: #38bdf8; font-family: monospace; font-size: 0.75rem; font-weight: 700; }
-        .dashboard { display: flex; gap: 12px; margin-bottom: 25px; }
-        .card { background: var(--card-bg); padding: 16px 12px; border-radius: 16px; flex: 1; border: 1px solid var(--card-border); text-align: center; }
-        .card-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; }
-        .value { font-size: 2.4rem; font-weight: 900; margin-top: 5px; font-variant-numeric: tabular-nums; }
-        .target { color: var(--primary); text-shadow: 0 0 20px var(--primary-glow); }
-        .current { color: var(--success); text-shadow: 0 0 20px var(--success-glow); }
-        .relay-panel { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 18px; padding: 15px; margin-bottom: 25px; }
-        .relay-panel-title { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 12px; text-align: center; }
-        .relay-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-        .relay-unit { background: #101726; border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 12px; padding: 10px 5px; text-align: center; }
-        .relay-unit.active { background: rgba(16, 185, 129, 0.08); border-color: var(--success); box-shadow: 0 0 12px rgba(16, 185, 129, 0.15); }
-        .relay-unit.stalled { background: rgba(239, 68, 68, 0.08); border-color: var(--danger); box-shadow: 0 0 12px rgba(239, 68, 68, 0.15); }
-        .relay-unit .led { width: 10px; height: 10px; border-radius: 50%; background: #334155; margin: 0 auto 6px auto; }
-        .relay-unit.active .led { background: var(--success); box-shadow: 0 0 10px var(--success); }
-        .relay-unit.stalled .led { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
-        .relay-unit .name { font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; }
-        .relay-unit.active .name { color: var(--success); }
-        .relay-unit.stalled .name { color: var(--danger); }
-        .slider-section { width: 100%; margin-bottom: 20px; }
-        .slider-label { color: var(--text-muted); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; display: block; }
-        input[type=range] { -webkit-appearance: none; width: 100%; height: 8px; border-radius: 100px; background: #1e293b; outline: none; margin: 15px 0; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #ffffff; border: 4px solid var(--primary); cursor: pointer; box-shadow: 0 0 15px var(--primary-glow); }
-        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
-        .reboot-btn { width: 100%; padding: 14px; border-radius: 12px; border: none; background: rgba(239, 68, 68, 0.1); color: var(--danger); font-weight: 700; text-transform: uppercase; cursor: pointer; border: 1px solid var(--danger); }
-        .reboot-btn:hover { background: var(--danger); color: white; }
+        body { font-family: sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 350px; text-align: center; }
+        .slider { width: 100%; margin: 20px 0; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>Position Command Center</h2>
-        <div class="status-container">
-            <div class="status-badge"><span class="label">Cloud MQTT</span><div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;"><span class="dot disconnected" id="webDot"></span><span id="webStatus" style="color: var(--danger);">Offline</span></div></div>
-            <div class="status-badge" id="espBadge"><span class="label">ESP Hardware</span><div style="display: flex; align-items: center; gap: 4px; margin-top: 2px;"><span class="dot disconnected" id="espDot"></span><span id="espStatus" style="color: var(--danger);">Offline</span></div></div>
-            <div class="status-badge"><span class="label">Next Restart</span><div style="margin-top: 2px;"><span class="reboot-val" id="rebootTimer">--:--:--</span></div></div>
-        </div>
-        <div class="dashboard">
-            <div class="card"><div class="card-title">Target Pos</div><div id="targetValue" class="value target">0%</div></div>
-            <div class="card"><div class="card-title">Current Read</div><div id="currentValue" class="value current">0%</div></div>
-        </div>
-        <div class="relay-panel">
-            <div class="relay-panel-title">Active Relay Monitoring</div>
-            <div class="relay-grid">
-                <div class="relay-unit" id="r1"><div class="led"></div><div class="name">R1 FWD</div></div>
-                <div class="relay-unit" id="r2"><div class="led"></div><div class="name">R2 FWD</div></div>
-                <div class="relay-unit" id="r3"><div class="led"></div><div class="name">R3 REV</div></div>
-                <div class="relay-unit" id="r4"><div class="led"></div><div class="name">R4 REV</div></div>
-            </div>
-        </div>
-        <div class="slider-section"><label class="slider-label" for="pulseSlider">Command Output Slider</label><input type="range" min="0" max="100" value="0" id="pulseSlider" onchange="sendTarget(this.value)" oninput="updateUI(this.value)"></div>
-        <button class="reboot-btn" onclick="sendReboot()">Reboot System</button>
-    </div>
 
-    <script>
-        window.onload = function() {
-            // HiveMQ Cloud Configuration
-            const mqtt_host = "93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud";
-            const mqtt_port = 8884; // REQUIRED: Must be 8884 for WebSockets
-            const mqtt_user = "tohits";
-            const mqtt_pass = "toh123@TOH";
-            const clientID = "web_" + Math.random().toString(16).substring(2, 10);
-            
-            // REQUIRED: HiveMQ uses an empty string "" as the path
-            const client = new Paho.MQTT.Client(mqtt_host, mqtt_port, "", clientID);
-            
-            let isESPOnline = false;
+<div class="card">
+    <h2>Pulse Dashboard</h2>
+    <h3 id="statusText">Connecting...</h3>
+    <p>Current Count: <span id="currentPulse">0</span></p>
+    <input type="range" class="slider" id="pulseSlider" min="0" max="900" onchange="sendTarget(this.value)">
+</div>
 
-            function connect() {
-                updateWebStatus("Connecting...", "warning");
-                client.connect({
-                    userName: mqtt_user,
-                    password: mqtt_pass,
-                    useSSL: true, // REQUIRED: Always true for HiveMQ Cloud
-                    onSuccess: () => {
-                        updateWebStatus("Connected", "connected");
-                        client.subscribe("tohits/#"); // Subscribe to all to be safe
-                    },
-                    onFailure: (err) => {
-                        updateWebStatus("Failed", "disconnected");
-                        console.error("MQTT Connect Fail:", err);
-                        setTimeout(connect, 5000);
-                    }
-                });
-            }
+<script>
+    const client = new Paho.MQTT.Client("93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud", 8884, "web_client");
 
-            client.onConnectionLost = (resp) => {
-                updateWebStatus("Offline", "disconnected");
-                setTimeout(connect, 5000);
-            };
+    client.connect({
+        userName: "tohits",
+        password: "toh123@TOH",
+        useSSL: true,
+        onSuccess: () => {
+            document.getElementById("statusText").innerText = "Connected";
+            client.subscribe("pulse/status");
+        }
+    });
 
-            client.onMessageArrived = (message) => {
-                const topic = message.destinationName;
-                const payload = message.payloadString;
+    client.onMessageArrived = (message) => {
+        const data = message.payloadString.split(","); // format: "count,achieved"
+        document.getElementById("currentPulse").innerText = data[0];
+        document.getElementById("statusText").innerText = data[1] === "1" ? "Target Met" : "Running";
+    };
 
-                if (topic === "tohits/current") document.getElementById('currentValue').innerText = payload + "%";
-                if (topic === "tohits/target") {
-                    document.getElementById('targetValue').innerText = payload + "%";
-                    document.getElementById('pulseSlider').value = payload;
-                }
-                if (topic === "tohits/status") {
-                    isESPOnline = (payload === "online");
-                    updateESPStatus(isESPOnline ? "Online" : "Offline", isESPOnline ? "connected" : "disconnected");
-                }
-            };
-
-            // Global helpers for HTML
-            window.sendTarget = function(val) {
-                if (client.isConnected()) {
-                    let msg = new Paho.MQTT.Message(val.toString());
-                    msg.destinationName = "tohits/target";
-                    msg.retained = true;
-                    client.send(msg);
-                }
-            };
-
-            window.sendReboot = function() {
-                if (client.isConnected() && confirm("Reboot system?")) {
-                    let msg = new Paho.MQTT.Message("REBOOT");
-                    msg.destinationName = "tohits/command";
-                    client.send(msg);
-                }
-            };
-
-            window.updateUI = function(val) { document.getElementById('targetValue').innerText = val + "%"; };
-
-            function updateWebStatus(text, state) {
-                document.getElementById("webStatus").innerText = text;
-                document.getElementById("webDot").className = "dot " + state;
-            }
-
-            function updateESPStatus(text, state) {
-                document.getElementById("espStatus").innerText = text;
-                document.getElementById("espDot").className = "dot " + state;
-            }
-
-            connect();
-        };
-    </script>
+    function sendTarget(val) {
+        let msg = new Paho.MQTT.Message(val);
+        msg.destinationName = "pulse/set";
+        client.send(msg);
+    }
+</script>
 </body>
 </html>
