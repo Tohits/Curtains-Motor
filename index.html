@@ -7,19 +7,20 @@
     <style>
         body { font-family: sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
         .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 350px; text-align: center; }
-        .status-bar { display: flex; justify-content: space-around; margin-bottom: 20px; font-size: 0.9em; }
-        .indicator { padding: 5px 10px; border-radius: 5px; font-weight: bold; }
-        .online { background: #d4edda; color: #155724; }
-        .offline { background: #f8d7da; color: #721c24; }
+        .relay-box { display: flex; justify-content: space-around; margin: 20px 0; }
+        .relay-indicator { padding: 10px; border-radius: 5px; background: #eee; color: #888; font-weight: bold; width: 40%; }
+        .active-cw { background: #ffc107; color: #000; animation: blink 1s infinite; }
+        .active-ccw { background: #28a745; color: #fff; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
         .slider { width: 100%; margin: 20px 0; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <div class="status-bar">
-        <div>MQTT: <span id="mqttStatus" class="indicator offline">Offline</span></div>
-        <div>ESP: <span id="espStatus" class="indicator offline">Offline</span></div>
+    <div class="relay-box">
+        <div id="cwIndicator" class="relay-indicator">CW OFF</div>
+        <div id="ccwIndicator" class="relay-indicator">CCW OFF</div>
     </div>
     <h2>Pulse Dashboard</h2>
     <p>Current Count: <b id="currentPulse">0</b></p>
@@ -28,40 +29,24 @@
 
 <script>
     const client = new Paho.MQTT.Client("93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud", 8884, "web_client");
-    let lastMessageTime = Date.now();
-
-    const savedTarget = localStorage.getItem('lastTarget') || 0;
-    document.getElementById('pulseSlider').value = savedTarget;
-
-    client.connect({
-        userName: "tohits",
-        password: "toh123@TOH",
-        useSSL: true,
-        onSuccess: () => {
-            document.getElementById("mqttStatus").innerText = "Online";
-            document.getElementById("mqttStatus").className = "indicator online";
-            client.subscribe("pulse/status");
-            sendTarget(document.getElementById('pulseSlider').value);
-        }
-    });
+    
+    // MQTT connection same as before...
+    client.connect({ userName: "tohits", password: "toh123@TOH", useSSL: true, onSuccess: () => client.subscribe("pulse/status") });
 
     client.onMessageArrived = (message) => {
-        lastMessageTime = Date.now();
-        document.getElementById("espStatus").innerText = "Online";
-        document.getElementById("espStatus").className = "indicator online";
-        const data = message.payloadString.split(",");
+        const data = message.payloadString.split(","); // format: [count, achieved, direction]
         document.getElementById("currentPulse").innerText = data[0];
+        
+        // Update Relay UI based on direction (data[2])
+        const dir = parseInt(data[2]);
+        document.getElementById("cwIndicator").className = "relay-indicator " + (dir === 1 ? "active-cw" : "");
+        document.getElementById("cwIndicator").innerText = (dir === 1 ? "CW ON" : "CW OFF");
+        
+        document.getElementById("ccwIndicator").className = "relay-indicator " + (dir === 2 ? "active-ccw" : "");
+        document.getElementById("ccwIndicator").innerText = (dir === 2 ? "CCW ON" : "CCW OFF");
     };
 
-    setInterval(() => {
-        if (Date.now() - lastMessageTime > 3000) {
-            document.getElementById("espStatus").innerText = "Offline";
-            document.getElementById("espStatus").className = "indicator offline";
-        }
-    }, 1000);
-
     function sendTarget(val) {
-        localStorage.setItem('lastTarget', val);
         let msg = new Paho.MQTT.Message(val);
         msg.destinationName = "pulse/set";
         client.send(msg);
