@@ -21,7 +21,6 @@
         <div>MQTT: <span id="mqttStatus" class="indicator offline">Offline</span></div>
         <div>ESP: <span id="espStatus" class="indicator offline">Offline</span></div>
     </div>
-    
     <h2>Pulse Dashboard</h2>
     <p>Current Count: <b id="currentPulse">0</b></p>
     <input type="range" class="slider" id="pulseSlider" min="0" max="100" onchange="sendTarget(this.value)">
@@ -31,7 +30,6 @@
     const client = new Paho.MQTT.Client("93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud", 8884, "web_client");
     let lastMessageTime = Date.now();
 
-    // MQTT Connection Logic
     client.connect({
         userName: "tohits",
         password: "toh123@TOH",
@@ -40,29 +38,17 @@
             document.getElementById("mqttStatus").innerText = "Online";
             document.getElementById("mqttStatus").className = "indicator online";
             client.subscribe("pulse/status");
-        },
-        onFailure: () => {
-            document.getElementById("mqttStatus").innerText = "Offline";
-            document.getElementById("mqttStatus").className = "indicator offline";
         }
     });
 
-    client.onConnectionLost = () => {
-        document.getElementById("mqttStatus").innerText = "Offline";
-        document.getElementById("mqttStatus").className = "indicator offline";
-    };
-
-    // Receive Data from ESP
     client.onMessageArrived = (message) => {
-        lastMessageTime = Date.now(); // Reset Watchdog
+        lastMessageTime = Date.now();
         document.getElementById("espStatus").innerText = "Online";
         document.getElementById("espStatus").className = "indicator online";
-
         const data = message.payloadString.split(",");
         document.getElementById("currentPulse").innerText = data[0];
     };
 
-    // Watchdog Timer: Check if ESP is still sending data
     setInterval(() => {
         if (Date.now() - lastMessageTime > 3000) {
             document.getElementById("espStatus").innerText = "Offline";
