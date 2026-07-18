@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>MQTT Pulse Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <style>
         body { font-family: sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
@@ -14,7 +15,7 @@
 <div class="card">
     <h2>Pulse Dashboard</h2>
     <h3 id="statusText">Connecting...</h3>
-    <p>Current Count: <span id="currentPulse">0</span></p>
+    <p>Current Count: <b id="currentPulse">0</b></p>
     <input type="range" class="slider" id="pulseSlider" min="0" max="900" onchange="sendTarget(this.value)">
 </div>
 
@@ -32,9 +33,9 @@
     });
 
     client.onMessageArrived = (message) => {
-        const data = message.payloadString.split(","); // format: "count,achieved"
+        const data = message.payloadString.split(",");
         document.getElementById("currentPulse").innerText = data[0];
-        document.getElementById("statusText").innerText = data[1] === "1" ? "Target Met" : "Running";
+        document.getElementById("statusText").innerText = data[1] === "1" ? "Target Met" : "Moving...";
     };
 
     function sendTarget(val) {
