@@ -16,7 +16,9 @@
         .relay-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin: 20px 0; }
         .relay-btn { background: #0b0e14; padding: 10px 5px; border-radius: 10px; font-size: 0.6em; border: 1px solid #2d3446; transition: 0.3s; }
         .active-relay { background: #ff4d4d; color: white; }
-        .slider { width: 100%; margin: 20px 0; accent-color: #5c9eff; }
+        .slider { -webkit-appearance: none; width: 100%; height: 10px; background: #0b0e14; border-radius: 10px; border: 1px solid #2d3446; margin: 20px 0; }
+        .slider::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; background: #5c9eff; border-radius: 50%; box-shadow: 0 0 15px rgba(92, 158, 255, 0.6); border: 3px solid #ffffff; transition: 0.2s; }
+        .slider::-webkit-slider-thumb:hover { transform: scale(1.15); background: #84b8ff; }
         .reboot-btn { width: 100%; padding: 15px; background: #ff4d4d; color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
@@ -44,7 +46,7 @@
 <script>
     const client = new Paho.MQTT.Client("93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud", 8884, "web_client");
     let lastMsgTime = Date.now();
-    function updateTargetDisplay(val) { document.getElementById("targetDisplay").innerText = val + "%"; }
+    function updateTargetDisplay(val) { const d = document.getElementById("targetDisplay"); d.innerText = val + "%"; d.style.color = "#ffffff"; setTimeout(() => { d.style.color = "#5c9eff"; }, 500); }
     function formatTime(s) { const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const sec = s % 60; return `${h}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`; }
     client.connect({ userName: "tohits", password: "toh123@TOH", useSSL: true, onSuccess: () => {
         document.getElementById("mqttStatus").style.backgroundColor = "#2ecc71";
