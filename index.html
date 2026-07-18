@@ -7,7 +7,7 @@
     <style>
         body { font-family: sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
         .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 350px; text-align: center; }
-        .status-bar { display: flex; justify-content: space-around; margin-bottom: 20px; font-size: 0.9em; }
+        .status-bar { display: flex; flex-direction: column; gap: 5px; margin-bottom: 20px; font-size: 0.85em; }
         .relay-box { display: flex; justify-content: space-around; margin: 20px 0; }
         .indicator { padding: 5px 10px; border-radius: 5px; font-weight: bold; }
         .online { background: #d4edda; color: #155724; }
@@ -23,8 +23,8 @@
 
 <div class="card">
     <div class="status-bar">
-        <div>MQTT: <span id="mqttStatus" class="indicator offline">Offline</span></div>
-        <div>ESP: <span id="espStatus" class="indicator offline">Offline</span></div>
+        <div>MQTT: <span id="mqttStatus" class="indicator offline">Offline</span> | ESP: <span id="espStatus" class="indicator offline">Offline</span></div>
+        <div>Next Reboot: <b id="rebootTimer">--</b></div>
     </div>
     <div class="relay-box">
         <div id="cwIndicator" class="relay-indicator">CW OFF</div>
@@ -33,6 +33,7 @@
     <h2>Pulse Dashboard</h2>
     <p>Current Count: <b id="currentPulse">0</b></p>
     <input type="range" class="slider" id="pulseSlider" min="0" max="100" onchange="sendTarget(this.value)">
+    <button onclick="sendReboot()" style="width:100%; padding:10px; background:#dc3545; color:white; border:none; border-radius:5px; cursor:pointer;">System Reboot</button>
 </div>
 
 <script>
@@ -59,16 +60,24 @@
         document.getElementById("espStatus").innerText = "Online";
         document.getElementById("espStatus").className = "indicator online";
         
-        const data = message.payloadString.split(","); // [count, achieved, direction]
+        const data = message.payloadString.split(","); 
         document.getElementById("currentPulse").innerText = data[0];
         
         const dir = parseInt(data[2]);
         document.getElementById("cwIndicator").className = "relay-indicator " + (dir === 1 ? "active-cw" : "");
         document.getElementById("cwIndicator").innerText = (dir === 1 ? "CW ON" : "CW OFF");
-        
         document.getElementById("ccwIndicator").className = "relay-indicator " + (dir === 2 ? "active-ccw" : "");
         document.getElementById("ccwIndicator").innerText = (dir === 2 ? "CCW ON" : "CCW OFF");
+        
+        document.getElementById("rebootTimer").innerText = formatTime(parseInt(data[3]));
     };
+
+    function formatTime(s) {
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        return `${h}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+    }
 
     setInterval(() => {
         if (Date.now() - lastMessageTime > 3000) {
@@ -82,6 +91,14 @@
         let msg = new Paho.MQTT.Message(val);
         msg.destinationName = "pulse/set";
         client.send(msg);
+    }
+
+    function sendReboot() {
+        if(confirm("Are you sure you want to reboot the ESP?")) {
+            let msg = new Paho.MQTT.Message("REBOOT");
+            msg.destinationName = "pulse/cmd";
+            client.send(msg);
+        }
     }
 </script>
 </body>
