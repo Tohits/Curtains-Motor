@@ -8,6 +8,7 @@
         body { font-family: 'Segoe UI', sans-serif; background: #0b0e14; color: white; display: flex; justify-content: center; padding: 20px; }
         .card { background: #151a23; padding: 25px; border-radius: 20px; border: 1px solid #2d3446; width: 350px; text-align: center; }
         h2 { color: #5c9eff; margin-bottom: 20px; font-size: 1.2em; }
+        .input-box { background: #0b0e14; border: 1px solid #2d3446; color: white; padding: 10px; border-radius: 10px; width: 90%; margin-bottom: 20px; text-align: center; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
         .box { background: #0b0e14; padding: 10px; border-radius: 12px; font-size: 0.6em; }
         .status-dot { height: 8px; width: 8px; background-color: #ff4d4d; border-radius: 50%; display: inline-block; transition: 0.3s; }
@@ -24,7 +25,8 @@
 </head>
 <body>
 <div class="card">
-    <h2>CURTAINS COMMAND CENTER</h2>
+    <h2>CURTAINS CONTROL</h2>
+    <input type="text" id="chipIdInput" class="input-box" placeholder="Enter Curtain Chip ID..." onchange="connectToDevice()">
     <div class="grid-3">
         <div class="box">CLOUD MQTT<br><span class="status-dot" id="mqttStatus"></span> <span id="mqttTxt">OFF</span></div>
         <div class="box">ESP HARDWARE<br><span class="status-dot" id="espStatus"></span> <span id="espTxt">OFF</span></div>
@@ -34,41 +36,39 @@
         <div class="stat-card">TARGET POS<br><b style="font-size: 1.5em; color: #5c9eff;" id="targetDisplay">0%</b></div>
         <div class="stat-card">CURRENT READ<br><b style="font-size: 1.5em; color: #2ecc71;" id="currentDisplay">0%</b></div>
     </div>
-    <div>ACTIVE RELAY MONITORING</div>
     <div class="relay-grid">
         <div id="r1" class="relay-btn">R1 FWD</div><div id="r2" class="relay-btn">R2 FWD</div>
         <div id="r3" class="relay-btn">R3 REV</div><div id="r4" class="relay-btn">R4 REV</div>
     </div>
-    <div>COMMAND OUTPUT SLIDER</div>
     <input type="range" class="slider" id="pulseSlider" min="0" max="100" oninput="updateTargetDisplay(this.value)" onchange="sendTarget(this.value)">
     <button class="reboot-btn" onclick="sendReboot()">REBOOT SYSTEM</button>
 </div>
 <script>
-    const client = new Paho.MQTT.Client("93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud", 8884, "web_client");
-    let lastMsgTime = Date.now();
-    function updateTargetDisplay(val) { const d = document.getElementById("targetDisplay"); d.innerText = val + "%"; d.style.color = "#ffffff"; setTimeout(() => { d.style.color = "#5c9eff"; }, 500); }
-    function formatTime(s) { const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const sec = s % 60; return `${h}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`; }
-    client.connect({ userName: "tohits", password: "toh123@TOH", useSSL: true, onSuccess: () => {
-        document.getElementById("mqttStatus").style.backgroundColor = "#2ecc71";
-        document.getElementById("mqttTxt").innerText = "ON";
-        client.subscribe("pulse/status");
-    }});
-    client.onMessageArrived = (m) => {
-        lastMsgTime = Date.now();
-        document.getElementById("espStatus").style.backgroundColor = "#2ecc71";
-        document.getElementById("espTxt").innerText = "ON";
-        const d = m.payloadString.split(",");
-        document.getElementById("currentDisplay").innerText = d[0] + "%";
-        document.getElementById("rebootTimer").innerText = formatTime(parseInt(d[3]));
-        const dir = parseInt(d[2]);
-        document.getElementById("r1").className = "relay-btn " + (dir === 1 ? "active-relay" : "");
-        document.getElementById("r2").className = "relay-btn " + (dir === 1 ? "active-relay" : "");
-        document.getElementById("r3").className = "relay-btn " + (dir === 2 ? "active-relay" : "");
-        document.getElementById("r4").className = "relay-btn " + (dir === 2 ? "active-relay" : "");
-    };
-    setInterval(() => { if (Date.now() - lastMsgTime > 5000) { document.getElementById("espStatus").style.backgroundColor = "#ff4d4d"; document.getElementById("espTxt").innerText = "OFF"; } }, 1000);
-    function sendTarget(val) { let msg = new Paho.MQTT.Message(val); msg.destinationName = "pulse/set"; client.send(msg); }
-    function sendReboot() { if(confirm("Confirm Reboot?")) { let msg = new Paho.MQTT.Message("REBOOT"); msg.destinationName = "pulse/cmd"; client.send(msg); } }
+    let client;
+    function connectToDevice() {
+        const chipId = document.getElementById("chipIdInput").value;
+        if(!chipId) return;
+        client = new Paho.MQTT.Client("93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud", 8884, "web_client_" + Math.random());
+        client.connect({ userName: "tohits", password: "toh123@TOH", useSSL: true, onSuccess: () => {
+            document.getElementById("mqttStatus").style.backgroundColor = "#2ecc71";
+            document.getElementById("mqttTxt").innerText = "ON";
+            client.subscribe("pulse/" + chipId + "/status");
+        }});
+        client.onMessageArrived = (m) => {
+            document.getElementById("espStatus").style.backgroundColor = "#2ecc71";
+            document.getElementById("espTxt").innerText = "ON";
+            const d = m.payloadString.split(",");
+            document.getElementById("currentDisplay").innerText = d[0] + "%";
+            const dir = parseInt(d[2]);
+            document.getElementById("r1").className = "relay-btn " + (dir === 1 ? "active-relay" : "");
+            document.getElementById("r2").className = "relay-btn " + (dir === 1 ? "active-relay" : "");
+            document.getElementById("r3").className = "relay-btn " + (dir === 2 ? "active-relay" : "");
+            document.getElementById("r4").className = "relay-btn " + (dir === 2 ? "active-relay" : "");
+        };
+    }
+    function updateTargetDisplay(val) { document.getElementById("targetDisplay").innerText = val + "%"; }
+    function sendTarget(val) { client.send("pulse/" + document.getElementById("chipIdInput").value + "/set", val); }
+    function sendReboot() { if(confirm("Confirm Reboot?")) client.send("pulse/" + document.getElementById("chipIdInput").value + "/cmd", "REBOOT"); }
 </script>
 </body>
 </html>
