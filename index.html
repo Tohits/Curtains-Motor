@@ -27,32 +27,47 @@
 <div class="card">
     <h2>CURTAINS CONTROL</h2>
     <input type="text" id="chipIdInput" class="input-box" placeholder="Enter Curtain Chip ID..." onchange="connectToDevice()">
+    
     <div class="grid-3">
         <div class="box">CLOUD MQTT<br><span class="status-dot" id="mqttStatus"></span> <span id="mqttTxt">OFF</span></div>
         <div class="box">ESP HARDWARE<br><span class="status-dot" id="espStatus"></span> <span id="espTxt">OFF</span></div>
         <div class="box">NEXT RESTART<br><b id="rebootTimer" style="color:#5c9eff;">--:--:--</b></div>
     </div>
+    
     <div class="grid-2">
         <div class="stat-card">TARGET POS<br><b style="font-size: 1.5em; color: #5c9eff;" id="targetDisplay">0%</b></div>
         <div class="stat-card">CURRENT READ<br><b style="font-size: 1.5em; color: #2ecc71;" id="currentDisplay">0%</b></div>
     </div>
+    
     <div class="relay-grid">
         <div id="r1" class="relay-btn">R1 FWD</div><div id="r2" class="relay-btn">R2 FWD</div>
         <div id="r3" class="relay-btn">R3 REV</div><div id="r4" class="relay-btn">R4 REV</div>
     </div>
-    <input type="range" class="slider" id="pulseSlider" min="0" max="100" oninput="updateTargetDisplay(this.value)" onchange="sendTarget(this.value)">
+    
+    <!-- Value is set to 0 by default so it doesn't float in the middle -->
+    <input type="range" class="slider" id="pulseSlider" min="0" max="100" value="0" oninput="updateTargetDisplay(this.value)" onchange="sendTarget(this.value)">
+    
     <button class="reboot-btn" onclick="sendReboot()">REBOOT SYSTEM</button>
 </div>
 
 <script>
     let client;
     const chipInput = document.getElementById("chipIdInput");
+    let initialSyncDone = false;
 
-    // 1. Load saved ID on startup
+    // 1. Load saved ID and saved Slider Position on startup
     window.onload = () => {
         const savedId = localStorage.getItem("lastChipId");
         if (savedId) {
             chipInput.value = savedId;
+            
+            // Restore last slider position for this specific curtain
+            const savedPos = localStorage.getItem("lastPos_" + savedId);
+            if (savedPos) {
+                document.getElementById("pulseSlider").value = savedPos;
+                document.getElementById("targetDisplay").innerText = savedPos + "%";
+            }
+            
             connectToDevice();
         }
     };
@@ -61,8 +76,8 @@
         const chipId = chipInput.value;
         if(!chipId) return;
         
-        // 2. Save ID for next time
         localStorage.setItem("lastChipId", chipId);
+        initialSyncDone = false;
         
         if(client) client.disconnect();
         client = new Paho.MQTT.Client("93bad3def29641e399de9a7b9c676613.s1.eu.hivemq.cloud", 8884, "web_client_" + Math.random());
@@ -77,8 +92,17 @@
             document.getElementById("espStatus").style.backgroundColor = "#2ecc71";
             document.getElementById("espTxt").innerText = "ON";
             const d = m.payloadString.split(",");
+            
+            // Always update the Current Read to match hardware
             document.getElementById("currentDisplay").innerText = d[0] + "%";
             
+            // If there's no saved slider position, sync to the ESP hardware reading on first connect
+            if (!initialSyncDone && !localStorage.getItem("lastPos_" + chipId)) {
+                document.getElementById("pulseSlider").value = d[0];
+                document.getElementById("targetDisplay").innerText = d[0] + "%";
+                initialSyncDone = true;
+            }
+
             // Handle timer formatting
             const timeRemaining = parseInt(d[3]);
             if (!isNaN(timeRemaining)) {
@@ -107,8 +131,11 @@
     }
     
     function sendTarget(val) { 
+        const chipId = chipInput.value;
         if(client && client.isConnected()) {
-            client.send("pulse/" + chipInput.value + "/set", val); 
+            client.send("pulse/" + chipId + "/set", val); 
+            // Save the newly set target position locally
+            localStorage.setItem("lastPos_" + chipId, val);
         }
     }
     
